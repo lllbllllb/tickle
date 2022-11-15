@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="ee">
+<head title="loader">
+    <style>
+        body {
+            background-color: rgba(0, 0, 255, .01) !important;
+        }
+
+        datalist {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            writing-mode: vertical-lr;
+        }
+
+        option {
+            padding: 0;
+            margin: 0;
+        }
+
+        .sticky-container {
+            position: sticky;
+            top: -1px; /* the trick for the sticky IntersectionObserver */
+            padding-top: 1px; /* compensate for the trick */
+        }
+
+        #stickyTickmarksContainer.isSticky {
+            color: rgb(0, 0, 0, 0);
+            transition: .4s;
+        }
+
+        #stickyButtonContainer {
+            display: flex;
+        }
+
+        #stickyButtonContainer.isSticky {
+            display: none;
+        }
+
+        .matte-background {
+            background-color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+
+    <!-- import -->
+    <!--    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- import -->
+
+
+    <script type="text/javascript" charset="UTF-8">
+        // preysToLoad["web"] = "http://localhost:8081/string/stream";
+        // preysToLoad["webflux"] = "http://localhost:8082/string/stream";
+        const colorPack = {
+            success: {
+                borderColor: 'rgb(0, 255, 0, 1)',
+                backgroundColor: 'rgb(0, 255, 0, 0.5)',
+            },
+            timeout: {
+                borderColor: 'rgb(255, 255, 0, 1)',
+                backgroundColor: 'rgb(255, 255, 0, 0.5)',
+            },
+            error: {
+                borderColor: 'rgb(255, 0, 0, 1)',
+                backgroundColor: 'rgb(255, 0, 0, 0.5)',
+            }
+        }
+        let dataCounters = {};
+        let preysToLoad = {};
+        let nameToLoadWsMap = {};
+        let nameToLineChartMap = {};
+        let nameToBarChartMap = {};
+        let headerNameToValueMap = {
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+        };
+
+        window.onload = async (event) => {
+            await registerSliderForm();
+            registerSubmitNewPreyEventListener();
+            await reloadPreys();
+            registerAddHeaderButtonButton();
+            renderHeaders();
+        };
+
+        function renderPrey(name, url, method, requestParameters, headers, requestBody, timeoutMs) {
+            const listElementId = "prey_" + name;
+            const accordionButtonId = "prey_name_" + name;
+            const bodyId = "prey_url_" + name;
+            const deleteButtonId = "prey_button_" + name;
+            const accordionId = "prey_accordion_" + name;
+            let headersList = "";
+            for (const header in headers) {
+                if (header) {
+                    headersList += `<div>${header}: ${headers[header]}</div>`;
+                }
+            }
+            const listElement = `
+                <li id="${listElementId}" class="container list-group-item">
+                    <div class="row">
+                        <div class="accordion accordion-flush col" id="accordionFlushExample">
+                            <div class="accordion-item">
+                                <div class="accordion-header" id="flush-headingOne">
+                                    <button id="${accordionButtonId}" class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${accordionId}" aria-expanded="false" aria-controls="flush-collapseOne">${name}</button>
+                                </div>
+                                <div id="${accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
+                                <div class="row accordion-body">
+                                    <div id="${bodyId}" class="col">${method}: ${url}${requestParameters ? '?' + requestParameters : ''}</div>
+                                    <div class="accordion-body col-md-3 d-flex justify-content-end">(response timeout ${timeoutMs} ms)</div>
+                                </div>
+                                    ${headersList ? `<div class="accordion-body">${headersList}</div>` : ""}
+                                    ${requestBody ? `
+                                    <div class="accordion-body">
+                                        <textarea class="form-control" rows="6" disabled>${requestBody}</textarea>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-1 d-flex justify-content-end">
+                            <button id="${deleteButtonId}" type="button" class="btn btn-outline-danger">
+                                <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
+                                    <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            `;
+
+            document.getElementById("preyList").insertAdjacentHTML("beforeend", listElement);
+
+            registerDeleteItemButton(deleteButtonId, name);
+        }
+
+        async function registerSliderForm() {
+            onSliderStickyContainerEvent();
+
+            const rpsSlide = document.getElementById('rpsSlide');
+            const rpsSliderDiv = document.getElementById("sliderAmount");
+
+            rpsSlide.oninput = function () {
+                rpsSliderDiv.innerHTML = this.value;
+            }
+
+            const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
+            const loadTimeInputId = document.getElementById("loadTimeInputId");
+
+            rpsSlide.onchange = function () {
+                const value = this.value;
+                if (value > 0) {
+                    resetCharts();
+                }
+                loadServices(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+            }
+
+            const loadParameters = await fetch("http://localhost:8088/loadParameters", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            });
+            const loadOptions = await loadParameters.json()
+
+            rpsSlide.value = loadOptions.rps;
+            rpsSliderDiv.innerHTML = loadOptions.rps;
+            stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
+        }
+
+        function registerSubmitNewPreyEventListener() {
+            const preyConfigForm = document.getElementById("preyConfigForm");
+            preyConfigForm.addEventListener("submit", event => {
+                const newPreyName = document.getElementById("newPreyName").value;
+                const newPreyUrl = document.getElementById("newPreyUrl").value;
+                const method = Array.from(document.getElementById("httpMethodSelector").children).find((selector) => selector.checked).value;
+                const loadRequestParams = document.getElementById("loadRequestParams").value;
+                const loadRequestBody = document.getElementById("loadRequestBody").value;
+                const expectedTime = document.getElementById("responseTimeoutInputId").value;
+                const expectedResponseStatusCode = document.getElementById("expectedStatusCodeInputId").value;
+
+                if (preyConfigForm.checkValidity()) {
+                    if (!preysToLoad[newPreyName]) {
+                        preysToLoad[newPreyName] = newPreyUrl;
+
+                        registerPrey(
+                            newPreyName,
+                            newPreyUrl,
+                            method,
+                            loadRequestParams,
+                            headerNameToValueMap,
+                            loadRequestBody,
+                            expectedTime,
+                            expectedResponseStatusCode
+                        );
+                    }
+                } else {
+                    event.stopPropagation();
+                }
+
+                preyConfigForm.classList.add('was-validated')
+                event.preventDefault();
+            });
+        }
+
+
+        function registerDeleteItemButton(id, name) {
+            document.getElementById(id).onclick = async () => {
+                if (preysToLoad[name]) {
+                    await unregisterPrey(name);
+                }
+            }
+        }
+
+        async function reloadPreys() {
+            const preyList = document.getElementById("preyList");
+            preyList.innerHTML = "";
+            const chartContainer = document.getElementById("chartContainer");
+            chartContainer.innerHTML = "";
+            preysToLoad = {};
+            nameToLoadWsMap = {};
+            nameToLineChartMap = {};
+            const response = await fetch("http://localhost:8088/prey", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            });
+            const preys = await response.json();
+
+            await preys.forEach((prey, index, array) => {
+                const name = prey.name;
+                const url = prey.path;
+                const method = prey.method;
+                const requestParameters = prey.requestParameters;
+                const headers = prey.headers;
+                const requestBody = prey.requestBody;
+                const timeout = prey.timeoutMs;
+                preysToLoad[name] = url;
+                renderPrey(name, url, method, requestParameters, headers, requestBody, timeout);
+                renderPreyCharts(name);
+                connectToLoadWs(name);
+                connectToCountdownWs(name);
+            });
+        }
+
+        async function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
+            const body = {
+                name: name,
+                path: url,
+                method: method,
+                requestParameters: requestParameters,
+                headers: headers,
+                requestBody: requestBody,
+                timeoutMs: responseTimeout,
+                expectedResponseStatusCode: expectedResponseStatusCode
+            }
+
+            await fetch("http://localhost:8088/prey", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(body)
+            })
+            await reloadPreys();
+        }
+
+        async function unregisterPrey(name) {
+            await fetch("http://localhost:8088/prey/" + name, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+            await reloadPreys();
+        }
+
+        function connectToLoadWs(name) {
+            const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
+            nameToLoadWsMap[name] = loadServiceWs;
+            loadServiceWs.onmessage = (event) => {
+                appendData(name, JSON.parse(event.data));
+            }
+
+            loadServiceWs.onopen = (event) => {
+                console.log(`[${name}] connected to load ws`);
+                dataCounters[name] = 0;
+            }
+
+
+            loadServiceWs.onerror = (event) => {
+                console.error(event);
+            }
+
+            loadServiceWs.onclose = (event) => {
+                console.log(`[${name}] disconnected from load ws`)
+            }
+        }
+
+        function appendData(name, data) {
+            appendLineChartData(nameToLineChartMap[name], data);
+            appendBarChartData(nameToBarChartMap[name], data);
+
+            if (!dataCounters[name]) {
+                dataCounters[name] = 0;
+                runChartUpdate(name, Number.MIN_SAFE_INTEGER);
+                console.log(`Chart for [${name}] was waked up`);
+            }
+
+            dataCounters[name]++;
+        }
+
+        function connectToCountdownWs(name) {
+            const countdownServiceWs = new WebSocket("ws://localhost:8088/websocket/countdown?" + name, []);
+
+            countdownServiceWs.onopen = (event) => {
+                console.log(`[${name}] connected to countdown ws`);
+            }
+
+            countdownServiceWs.onmessage = (event) => {
+                updateCountdown(name, JSON.parse(event.data));
+            }
+
+            countdownServiceWs.onerror = (event) => {
+                console.error(event);
+            }
+
+            countdownServiceWs.onclose = (event) => {
+                console.log(`[${name}] disconnected from countdown ws`)
+            }
+        }
+
+        function runChartUpdate(name, prevValue) {
+            const counter = dataCounters[name];
+
+            if (prevValue !== counter) {
+                setTimeout(() => {
+                    nameToLineChartMap[name]["chart"].update();
+                    nameToBarChartMap[name]["chart"].update();
+
+                    runChartUpdate(name, counter)
+                }, 20);
+            } else {
+                dataCounters[name] = 0;
+
+                console.log(`Chart for [${name}] was snooze`);
+            }
+        }
+
+        function resetCharts() {
+            for (const name in nameToLineChartMap) {
+                nameToLineChartMap[name]["chart"].clear();
+            }
+        }
+
+        function updateCountdown(name, countdownTick) {
+            const progressbar = document.getElementById(`load-progressbar-${name}`);
+            const initialValue = countdownTick["initial"];
+            const currentValue = countdownTick["current"];
+
+            progressbar.setAttribute("aria-valuenow", `${initialValue}`);
+            progressbar.style.width = `${(initialValue - currentValue) / initialValue * 100}%`;
+            progressbar.innerHTML = `${currentValue}`;
+        }
+
+        function renderPreyCharts(name) {
+            const lineChartId = name + "_line_chart";
+            const barChartId = name + "_bar_chart";
+
+            renderCanvasesRow(lineChartId, barChartId, name);
+            renderLineChart(lineChartId, name);
+            renderBarChart(barChartId, name);
+        }
+
+        function renderLineChart(chartId, name) {
+            const chartContainer = {};
+            const attemptNumber = [];
+            const responseTime = [];
+            const pointBackgroundColor = [];
+            const pointBorderColor = [];
+            chartContainer["attemptNumber"] = attemptNumber;
+            chartContainer["responseTime"] = responseTime;
+            chartContainer["pointBackgroundColor"] = pointBackgroundColor;
+            chartContainer["pointBorderColor"] = pointBorderColor;
+            chartContainer["chart"] = new Chart(chartId, {
+                type: "line",
+                data: {
+                    labels: attemptNumber,
+                    datasets: [
+                        {
+                            label: 'Response time, ms',
+                            fill: false,
+                            pointBackgroundColor: pointBackgroundColor,
+                            pointBorderColor: pointBorderColor,
+                            pointStyle: 'circle',
+                            pointRadius: 8,
+                            pointHoverRadius: 15,
+                            data: responseTime,
+                            yAxisID: "axisResponseTime"
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    legend: {
+                        display: true
+                    },
+                    animation: false,
+                    showLine: false, // disable for all datasets
+                    scales: {
+                        axisResponseTime: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            min: 0,
+                            text: 'response time'
+                        },
+                        x: {
+                            display: false
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: false,
+                            text: name,
+                        },
+                        decimation: {
+                            enabled: true,
+                            algorithm: 'lttb',
+                            samples: 4,
+                            threshold: 1000
+                        }
+                    }
+                }
+            });
+
+            nameToLineChartMap[name] = chartContainer;
+        }
+
+        function renderBarChart(chartId, name) {
+            const chartContainer = {};
+            const successCount = [0];
+            const timeoutCount = [0];
+            const errorCount = [0];
+            chartContainer["successCount"] = successCount;
+            chartContainer["timeoutCount"] = timeoutCount;
+            chartContainer["errorCount"] = errorCount;
+            chartContainer["chart"] = new Chart(chartId, {
+                type: "bar",
+                data: {
+                    labels: ['Count'],
+                    datasets: [
+                        {
+                            label: 'Success',
+                            data: successCount,
+                            borderColor: colorPack.success.borderColor,
+                            backgroundColor: colorPack.success.backgroundColor,
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            borderSkipped: false,
+                        },
+                        {
+                            label: 'Timeout',
+                            data: timeoutCount,
+                            borderColor: colorPack.timeout.borderColor,
+                            backgroundColor: colorPack.timeout.backgroundColor,
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            borderSkipped: false,
+                        },
+                        {
+                            label: 'Error',
+                            data: errorCount,
+                            borderColor: colorPack.error.borderColor,
+                            backgroundColor: colorPack.error.backgroundColor,
+                            borderWidth: 2,
+                            borderRadius: 5,
+                            borderSkipped: false,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        x: {
+                            display: false,
+                        },
+                        y: {
+                            display: true,
+                            type: 'logarithmic',
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: false,
+                            text: name
+                        },
+                        decimation: {
+                            enabled: false,
+                            algorithm: 'min-max',
+                        }
+                    }
+                }
+            })
+
+            nameToBarChartMap[name] = chartContainer;
+        }
+
+        function appendLineChartData(chartContainer, report) {
+            safePush(chartContainer["responseTime"], report["responseTime"]);
+            safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
+
+            const status = report["status"];
+
+            if (status === "SUCCESS") {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.success.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.success.borderColor)
+            } else if (status === "TIMEOUT") {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.timeout.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.timeout.borderColor)
+            } else {
+                safePush(chartContainer["pointBackgroundColor"], colorPack.error.backgroundColor)
+                safePush(chartContainer["pointBorderColor"], colorPack.error.borderColor)
+            }
+        }
+
+        function appendBarChartData(chartContainer, report) {
+            const currentSuccessCount = chartContainer["successCount"][0];
+            const newSuccessCount = report["successCount"];
+            if (newSuccessCount > currentSuccessCount) {
+                chartContainer["successCount"][0] = newSuccessCount;
+            }
+
+            const currentTimeoutCount = chartContainer["timeoutCount"][0];
+            const newTimeoutCount = report["timeoutCount"];
+            if (newTimeoutCount > currentTimeoutCount) {
+                chartContainer["timeoutCount"][0] = newTimeoutCount;
+            }
+
+            const currentErrorCount = chartContainer["errorCount"][0];
+            const newErrorCount = report["errorCount"];
+            if (newErrorCount > currentErrorCount) {
+                chartContainer["errorCount"][0] = newErrorCount;
+            }
+        }
+
+        function loadServices(rps, isStopLoadWhenDisconnect, loadTimeSec) {
+            const msg = {
+                rps: rps,
+                stopWhenDisconnect: isStopLoadWhenDisconnect,
+                loadTimeSec: loadTimeSec
+            }
+
+            for (const name in preysToLoad) {
+                nameToLoadWsMap[name].send(JSON.stringify(msg));
+            }
+        }
+
+        function safePush(arr, element, maxSize = 100) {
+            arr.push(element);
+        }
+
+        function renderCanvasesRow(lineChartId, barChartId, name) {
+            const canvas = `
+                <label class="container-fluid text-center mt-1" for="chart-row-${name}">${name}</label>
+                <div id="chart-row-${name}" class="row justify-content-between">
+
+                    <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start">
+                        <canvas id="${lineChartId}" width="100%" height="22"></canvas>
+                    </div>
+                    <div id="cnavas_${barChartId}" class="col-md-2 align-items-start">
+                        <canvas id="${barChartId}" width="100%" height="116"></canvas>
+                    </div>
+                </div>
+                <div class="progress mb-4">
+                   <div id="load-progressbar-${name}" class="progress-bar progress-bar-striped" role="progressbar" aria-label="Example with label" style="width: 0;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+            `;
+
+            document.getElementById("chartContainer").insertAdjacentHTML("beforeend", canvas);
+        }
+
+        function renderHeaders() {
+            const headerList = document.getElementById("headerList");
+            headerList.innerHTML = "";
+
+            for (const name in headerNameToValueMap) {
+                renderHeader(name, headerNameToValueMap[name]);
+            }
+        }
+
+        function renderHeader(name, value) {
+            const listElementId = "header_" + name;
+            const headerNameId = "header_name_" + name;
+            const headerValueId = "header_" + value;
+            const deleteHeaderButtonId = "delete_header_button_" + name;
+            const listElement = `
+                <li id="${listElementId}" class="container list-group-item">
+                    <div class="row">
+                        <div class="col-md-5 align-self-center">
+                            <div id="${headerNameId}">${name}</div>
+                        </div>
+
+                        <div class="col align-self-center">
+                            <div id="${headerValueId}">${value}</div>
+                        </div>
+
+                        <div class="col-md-1 d-flex justify-content-end">
+                            <button id="${deleteHeaderButtonId}" type="button" class="btn btn-outline-danger">
+                                <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
+                                    <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </li>
+            `;
+
+            document.getElementById("headerList").insertAdjacentHTML("beforeend", listElement);
+
+            registerDeleteHeaderButton(deleteHeaderButtonId, name);
+        }
+
+        function registerAddHeaderButtonButton() {
+            document.getElementById("addHeaderButton").onclick = function () {
+                headerNameToValueMap[document.getElementById("loadHeaderName").value] = document.getElementById("loadHeaderValue").value;
+
+                renderHeaders();
+            }
+        }
+
+        function registerDeleteHeaderButton(id, name) {
+            document.getElementById(id).onclick = function () {
+                delete headerNameToValueMap[name];
+                renderHeaders();
+            }
+        }
+
+        function onSliderStickyContainerEvent() {
+            const stickyContainer = document.getElementById("sliderStickyContainer");
+
+
+            const observer = new IntersectionObserver(
+                ([e]) => {
+                    const target = e.target;
+                    target.querySelector("#stickyButtonContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+                    target.querySelector("#stickyTickmarksContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+                },
+                {threshold: [1]}
+            );
+
+            observer.observe(stickyContainer)
+        }
+    </script>
+    <title></title>
+</head>
+<body>
+
+<form id="preyConfigForm" name="preyConfigForm" class="container mt-2 needs-validation" novalidate accept-charset="UTF-8">
+    <div class="mt-2 row d-flex align-items-end">
+        <div class="col-md-3">
+            <label for="newPreyName" class="form-label">Name</label>
+            <input id="newPreyName" type="text" class="form-control" placeholder="My service" aria-label="Name" required>
+            <div class="invalid-feedback">
+                Name can't be empty
+            </div>
+        </div>
+
+        <div class="col">
+            <label for="newPreyUrl" class="form-label">Url</label>
+            <input id="newPreyUrl" type="text" class="form-control" placeholder="https://example.com" aria-label="Url" required>
+            <div class="invalid-feedback">
+                Target URL can't be empty
+            </div>
+        </div>
+
+        <div class="col-md-1 d-flex justify-content-end">
+            <button id="additionalFields" type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#additionalFieldsForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                          d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
+                </svg>
+            </button>
+        </div>
+
+    </div>
+
+    <div id="additionalFieldsForm" class="collapse">
+        <div class="row mt-2 d-flex align-items-end">
+            <div class="col">
+                <label for="httpMethodSelector" class="form-label">Method</label>
+                <div id="httpMethodSelector" class="container btn-group col" role="group" aria-label="Http methods group">
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioGET" autocomplete="off" value="GET" checked>
+                    <label class="btn btn-outline-primary" for="btnradioGET">GET</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPOST" autocomplete="off" value="POST">
+                    <label class="btn btn-outline-primary" for="btnradioPOST">POST</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPUT" autocomplete="off" value="PUT">
+                    <label class="btn btn-outline-primary" for="btnradioPUT">PUT</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPATCH" autocomplete="off" value="PATCH">
+                    <label class="btn btn-outline-primary" for="btnradioPATCH">PATCH</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioDELETE" autocomplete="off" value="DELETE">
+                    <label class="btn btn-outline-primary" for="btnradioDELETE">DELETE</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioHEAD" autocomplete="off" value="HEAD">
+                    <label class="btn btn-outline-primary" for="btnradioHEAD">HEAD</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioOPTIONS" autocomplete="off" value="OPTIONS">
+                    <label class="btn btn-outline-primary" for="btnradioOPTIONS">OPTIONS</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioTRACE" autocomplete="off" value="TRACE">
+                    <label class="btn btn-outline-primary" for="btnradioTRACE">TRACE</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <label for="loadRequestParams" class="form-label">Request parameters</label>
+            <textarea class="form-control" id="loadRequestParams" rows="1" placeholder="firstname=John&lastname=Doe&age=1984"></textarea>
+        </div>
+
+        <div class="mt-2 row d-flex align-items-end">
+            <div class="col-md-5">
+                <label for="loadHeaderName" class="form-label">Header name</label>
+                <input type="text" class="form-control" id="loadHeaderName" placeholder="My-Custom-Header-Name"/>
+            </div>
+
+            <div class="col">
+                <label for="loadHeaderValue" class="form-label">Header value</label>
+                <input type="text" class="form-control" id="loadHeaderValue" placeholder="X-custom-header-value"/>
+            </div>
+
+            <div class="col-md-1 d-flex justify-content-end">
+                <button id="addHeaderButton" type="button" class="btn btn-outline-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-plus" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="container mt-2">
+                <ul id="headerList" class="list-group"></ul>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <label for="loadRequestBody" class="form-label">Request body</label>
+            <textarea class="form-control" id="loadRequestBody" rows="3"></textarea>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <label for="expectedStatusCodeInputId" class="form-label">Expected success response status code</label>
+                <input type="number" step="1" class="form-control" id="expectedStatusCodeInputId" value="200" placeholder="any">
+                <div class="invalid-feedback">Must be integer</div>
+            </div>
+
+            <div class="col-md-6">
+                <label for="responseTimeoutInputId" class="form-label">Response timeout, ms</label>
+                <input type="number" step="1" class="form-control" id="responseTimeoutInputId" min="1" value="100" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button id="addItemButton" type="submit" class="btn btn-outline-primary col-md-12">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-plus" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+        </button>
+    </div>
+</form>
+
+<div class="container mt-2">
+    <ul id="preyList" class="list-group"></ul>
+</div>
+
+<div class="container mb-3 sticky-container" id="sliderStickyContainer">
+    <div class="mt-2 row d-flex align-items-center">
+        <div class="container mt-2 col">
+            <div class="d-flex justify-content-center">
+                <label class="form-label matte-background" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold"
+                                                                                                        id="sliderAmount">0</span>
+            </div>
+            <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="4" value="0" list="tickmarks" class="form-range matte-background"/>
+            <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
+                <datalist id="tickmarks" class=" col-md-12">
+                    <option value="0" label="disable"></option>
+                    <option value="100" label="100"></option>
+                    <option value="200" label="200"></option>
+                    <option value="300" label="300"></option>
+                    <option value="400" label="400"></option>
+                    <option value="500" label="500"></option>
+                    <option value="600" label="600"></option>
+                    <option value="700" label="700"></option>
+                    <option value="800" label="800"></option>
+                    <option value="900" label="900"></option>
+                    <option value="1000" label="1000"></option>
+                </datalist>
+            </div>
+        </div>
+
+        <div class="col-md-1 justify-content-end" id="stickyButtonContainer">
+            <button id="additionalSliderOptions" type="button" class="btn btn-outline-info" data-bs-toggle="collapse"
+                    data-bs-target="#additionalSliderOptionsForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                          d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="additionalSliderOptionsForm" class="collapse">
+    <div class="container">
+        <div class="row mb-3 d-flex align-items-center">
+            <div class="col-md-6">
+                <label for="loadTimeInputId" class="form-label">Load time, s</label>
+                <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+
+            <div class="d-flex justify-content-end col-md-6">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput">
+                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- chart -->
+<div class="container-fluid" id="chartContainer"></div>
+
+</body>
+</html>
