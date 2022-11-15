@@ -19,7 +19,7 @@ import static reactor.util.concurrent.Queues.SMALL_BUFFER_SIZE;
 @Service
 public class SessionService implements Initializable, Finalizable {
 
-    private final Map<String, Sinks.Many<AttemptResult>> preyNameToAttemptResultSink = new ConcurrentHashMap<>();
+    private final Map<String, Sinks.Many<HitResult>> preyNameToAttemptResultSink = new ConcurrentHashMap<>();
 
     private final Map<String, Sinks.Many<CountdownTick>> preyNameToCountdownTickSink = new ConcurrentHashMap<>();
 
@@ -33,7 +33,7 @@ public class SessionService implements Initializable, Finalizable {
 
         preyNameToPreyMap.put(preyName, prey);
 
-        var attemptResultSink = Sinks.many().multicast().<AttemptResult>onBackpressureBuffer(Integer.MAX_VALUE, false);
+        var attemptResultSink = Sinks.many().multicast().<HitResult>onBackpressureBuffer(Integer.MAX_VALUE, false);
 
         preyNameToAttemptResultSink.put(preyName, attemptResultSink);
 
@@ -44,7 +44,7 @@ public class SessionService implements Initializable, Finalizable {
         log.info("Session for [{}] was initialized", prey);
     }
 
-    public Flux<AttemptResult> subscribeToAttemptResultStream(String preyName) {
+    public Flux<HitResult> subscribeToAttemptResultStream(String preyName) {
         var attemptResultSink = preyNameToAttemptResultSink.get(preyName);
 
         if (attemptResultSink == null) {
@@ -114,14 +114,14 @@ public class SessionService implements Initializable, Finalizable {
 
     }
 
-    public void publishAttemptResult(String preyName, AttemptResult attemptResult) {
+    public void publishAttemptResult(String preyName, HitResult hitResult) {
         var sink = preyNameToAttemptResultSink.get(preyName);
 
         if (sink == null) {
             throw new IllegalStateException("[AttemptResult] sink for [%s] not found".formatted(preyName));
         }
 
-        sink.emitNext(attemptResult, CUSTOM_EMIT_FAILURE_HANDLER);
+        sink.emitNext(hitResult, CUSTOM_EMIT_FAILURE_HANDLER);
     }
 
     public void publishACountdownTick(String preyName, CountdownTick countdownTick) {

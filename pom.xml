@@ -22,6 +22,8 @@
 <!--        <repackage.classifier/>-->
         <mojo.build.helper.plugin.version>3.2.0</mojo.build.helper.plugin.version>
         <flatten.maven.plugin.version>1.2.2</flatten.maven.plugin.version>
+        <bootstrap.version>5.2.2</bootstrap.version>
+        <chartjs.version>3.9.1</chartjs.version>
     </properties>
 
     <modules>
@@ -53,6 +55,17 @@
                 <artifactId>tickle-service</artifactId>
                 <version>${revision}</version>
             </dependency>
+            <dependency>
+                <groupId>org.webjars</groupId>
+                <artifactId>bootstrap</artifactId>
+                <version>${bootstrap.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.webjars</groupId>
+                <artifactId>chartjs</artifactId>
+                <version>${chartjs.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 

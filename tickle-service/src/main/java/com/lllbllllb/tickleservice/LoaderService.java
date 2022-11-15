@@ -29,7 +29,7 @@ public class LoaderService {
 
     private final SessionService sessionService;
 
-    private final LoadResultFunction loadResultFunction;
+    private final HitResultService hitResultService;
 
     private final LoadService loadService;
 
@@ -66,9 +66,9 @@ public class LoaderService {
                             var responseTime = clock.millis() - start;
 
                             if (responseInfo.statusCode() == 200) {
-                                return HttpResponse.BodySubscribers.replacing(loadResultFunction.applySuccess(preyName, number, responseTime));
+                                return HttpResponse.BodySubscribers.replacing(hitResultService.applySuccess(preyName, number, responseTime));
                             } else {
-                                return HttpResponse.BodySubscribers.replacing(loadResultFunction.applyError(preyName, number, responseTime));
+                                return HttpResponse.BodySubscribers.replacing(hitResultService.applyError(preyName, number, responseTime));
                             }
                         })
                         .thenApply(HttpResponse::body)
@@ -79,9 +79,9 @@ public class LoaderService {
                                 && (HttpTimeoutException.class.equals(throwable.getCause().getClass())
                                 || HttpConnectTimeoutException.class.equals(throwable.getCause().getClass())
                                 || CancellationException.class.equals(throwable.getCause().getClass()))) {
-                                return loadResultFunction.applyTimeout(preyName, number, responseTime);
+                                return hitResultService.applyTimeout(preyName, number, responseTime);
                             } else {
-                                return loadResultFunction.applyError(preyName, number, responseTime);
+                                return hitResultService.applyError(preyName, number, responseTime);
                             }
                         }));
                 }, false, loadOptionsService.getMaxConcurrency(preyName), 1)
@@ -94,7 +94,7 @@ public class LoaderService {
             .subscribe(disposable -> loadService.registerActiveLoaderDisposable(preyName, disposable));
     }
 
-    public Flux<AttemptResult> getLoadEventStream(String preyName) {
+    public Flux<HitResult> getLoadEventStream(String preyName) {
         return sessionService.subscribeToAttemptResultStream(preyName);
     }
 

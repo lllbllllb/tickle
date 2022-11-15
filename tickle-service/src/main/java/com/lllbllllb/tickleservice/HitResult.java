@@ -1,6 +1,6 @@
 package com.lllbllllb.tickleservice;
 
-public record AttemptResult(
+public record HitResult(
     long responseTime,
 
     Status status,

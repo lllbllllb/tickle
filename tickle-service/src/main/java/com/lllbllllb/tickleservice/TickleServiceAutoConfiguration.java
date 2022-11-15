@@ -161,7 +161,11 @@ public class TickleServiceAutoConfiguration {
 
     @Bean
     public RouterFunction<ServerResponse> htmlRouter(@Value("classpath:templates/index.html") Resource html) {
-        return route(GET("/"), request -> ok().contentType(MediaType.TEXT_HTML).bodyValue(html));
+        return route(GET("/"), request -> ok()
+            .contentType(MediaType.TEXT_HTML)
+            .header("Content-Type", "text/css")
+            .header("Content-Type", "text/javascript")
+            .bodyValue(html));
     }
 
     @Bean
