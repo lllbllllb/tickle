@@ -47,7 +47,6 @@ public class LoaderService {
         resettables.forEach(resettable -> resettable.reset(preyName));
         loadOptionsService.updateLoadOptions(preyName, loadOptions);
         loadOptionsService.getLoadInterval(preyName)
-            .publishOn(Schedulers.boundedElastic())
             .doOnNext(interval -> countdownService.runCountdown(
                 preyName,
                 loadOptions,

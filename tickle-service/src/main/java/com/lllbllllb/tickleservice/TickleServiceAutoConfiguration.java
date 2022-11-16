@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
@@ -26,6 +27,7 @@ import org.springframework.web.reactive.socket.server.support.WebSocketHandlerAd
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
@@ -156,15 +158,16 @@ public class TickleServiceAutoConfiguration {
 
     @Bean
     RouterFunction<ServerResponse> staticResourceRouter() {
-        return RouterFunctions.resources("/**", new FileSystemResource("/templates/"));
+        return RouterFunctions.resources("/**", new FileSystemResource("/static/"))
+            .and(RouterFunctions.resources("/**", new ClassPathResource("/static/")));
     }
 
     @Bean
-    public RouterFunction<ServerResponse> htmlRouter(@Value("classpath:templates/index.html") Resource html) {
+    public RouterFunction<ServerResponse> htmlRouter(@Value("classpath:static/index.html") Resource html) {
         return route(GET("/"), request -> ok()
             .contentType(MediaType.TEXT_HTML)
-            .header("Content-Type", "text/css")
-            .header("Content-Type", "text/javascript")
+            .header(CONTENT_TYPE, "text/css")
+            .header(CONTENT_TYPE, "text/javascript")
             .bodyValue(html));
     }
 

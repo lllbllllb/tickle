@@ -1,0 +1,38 @@
+body {
+    background-color: rgba(0, 0, 255, .01) !important;
+}
+
+datalist {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    writing-mode: vertical-lr;
+}
+
+option {
+    padding: 0;
+    margin: 0;
+}
+
+.sticky-container {
+    position: sticky;
+    top: -1px; /* the trick for the sticky IntersectionObserver */
+    padding-top: 1px; /* compensate for the trick */
+}
+
+#stickyTickmarksContainer.isSticky {
+    color: rgb(0, 0, 0, 0);
+    transition: .4s;
+}
+
+#stickyButtonContainer {
+    display: flex;
+}
+
+#stickyButtonContainer.isSticky {
+    display: none;
+}
+
+.matte-background {
+    background-color: rgba(255, 255, 255, 0.8);
+}

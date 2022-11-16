@@ -23,6 +23,8 @@
 <!--        <repackage.classifier/>-->
         <mojo.build.helper.plugin.version>3.2.0</mojo.build.helper.plugin.version>
         <flatten.maven.plugin.version>1.2.2</flatten.maven.plugin.version>
+        <frontent-maven-plugin.version>1.12.1</frontent-maven-plugin.version>
+        <node.version>v18.12.1</node.version>
         <bootstrap.version>5.2.2</bootstrap.version>
         <chartjs.version>3.9.1</chartjs.version>
     </properties>
@@ -140,8 +142,44 @@
                         </execution>
                     </executions>
                 </plugin>
+                <plugin>
+                    <groupId>com.github.eirslett</groupId>
+                    <artifactId>frontend-maven-plugin</artifactId>
+                    <version>${frontent-maven-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>install-node-and-npm</id>
+                            <goals>
+                                <goal>install-node-and-npm</goal>
+                            </goals>
+                            <configuration>
+                                <nodeVersion>${node.version}</nodeVersion>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>npm-install</id>
+                            <goals>
+                                <goal>npm</goal>
+                            </goals>
+                            <configuration>
+                                <arguments>install</arguments>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>npm-build</id>
+                            <goals>
+                                <goal>npm</goal>
+                            </goals>
+                            <configuration>
+                                <arguments>run-script build</arguments>
+                            </configuration>
+                            <phase>generate-resources</phase>
+                        </execution>
+                    </executions>
+                </plugin>
             </plugins>
         </pluginManagement>
+
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>

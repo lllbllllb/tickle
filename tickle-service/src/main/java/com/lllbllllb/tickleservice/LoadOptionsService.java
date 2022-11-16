@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 
 @Slf4j
 @Service
-public class LoadOptionsService implements Initializable, Resettable, Finalizable {
+public class LoadOptionsService implements Initializable, Finalizable {
 
     private static final LoadOptions DEFAULT_LOAD_CONFIGURATION = new LoadOptions(0, false, 30);
 
@@ -64,15 +64,5 @@ public class LoadOptionsService implements Initializable, Resettable, Finalizabl
     @Override
     public void initialize(Prey prey) {
         nameToLoadOptionsMap.put(prey.name(), DEFAULT_LOAD_CONFIGURATION);
-    }
-
-    @Override
-    public void reset(String preyName) {
-        var current = getLoadOptions(preyName);
-        var reset = current.withRps(0);
-
-        nameToLoadOptionsMap.put(preyName, reset);
-
-        log.info("Load options for [{}] was reset successfully", preyName);
     }
 }

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+
+<head title="loader">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Tickle" />
+
+    <!-- import -->
+    <link rel="stylesheet" type="text/css" href="./style.css" />
+    <link rel="stylesheet" type="text/css" href="webjars/bootstrap/5.2.2/css/bootstrap.min.css"/>
+    <script type="text/javascript" src="webjars/bootstrap/5.2.2/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="webjars/chartjs/3.9.1/dist/chart.min.js"></script>
+    <!-- import -->
+
+    <script type="text/javascript" charset="UTF-8">
+
+    </script>
+    <title></title>
+</head>
+<body>
+
+<form id="preyConfigForm" name="preyConfigForm" class="container mt-2 needs-validation" novalidate accept-charset="UTF-8">
+    <div class="mt-2 row d-flex align-items-end">
+        <div class="col-md-3">
+            <label for="newPreyName" class="form-label">Name</label>
+            <input id="newPreyName" type="text" class="form-control" placeholder="My service" aria-label="Name" required>
+            <div class="invalid-feedback">
+                Name can't be empty
+            </div>
+        </div>
+
+        <div class="col">
+            <label for="newPreyUrl" class="form-label">Url</label>
+            <input id="newPreyUrl" type="text" class="form-control" placeholder="https://example.com" aria-label="Url" required>
+            <div class="invalid-feedback">
+                Target URL can't be empty
+            </div>
+        </div>
+
+        <div class="col-md-1 d-flex justify-content-end">
+            <button id="additionalFields" type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#additionalFieldsForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                          d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
+                </svg>
+            </button>
+        </div>
+
+    </div>
+
+    <div id="additionalFieldsForm" class="collapse">
+        <div class="row mt-2 d-flex align-items-end">
+            <div class="col">
+                <label for="httpMethodSelector" class="form-label">Method</label>
+                <div id="httpMethodSelector" class="container btn-group col" role="group" aria-label="Http methods group">
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioGET" autocomplete="off" value="GET" checked>
+                    <label class="btn btn-outline-primary" for="btnradioGET">GET</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPOST" autocomplete="off" value="POST">
+                    <label class="btn btn-outline-primary" for="btnradioPOST">POST</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPUT" autocomplete="off" value="PUT">
+                    <label class="btn btn-outline-primary" for="btnradioPUT">PUT</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioPATCH" autocomplete="off" value="PATCH">
+                    <label class="btn btn-outline-primary" for="btnradioPATCH">PATCH</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioDELETE" autocomplete="off" value="DELETE">
+                    <label class="btn btn-outline-primary" for="btnradioDELETE">DELETE</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioHEAD" autocomplete="off" value="HEAD">
+                    <label class="btn btn-outline-primary" for="btnradioHEAD">HEAD</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioOPTIONS" autocomplete="off" value="OPTIONS">
+                    <label class="btn btn-outline-primary" for="btnradioOPTIONS">OPTIONS</label>
+
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradioTRACE" autocomplete="off" value="TRACE">
+                    <label class="btn btn-outline-primary" for="btnradioTRACE">TRACE</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <label for="loadRequestParams" class="form-label">Request parameters</label>
+            <textarea class="form-control" id="loadRequestParams" rows="1" placeholder="firstname=John&lastname=Doe&age=1984"></textarea>
+        </div>
+
+        <div class="mt-2 row d-flex align-items-end">
+            <div class="col-md-5">
+                <label for="loadHeaderName" class="form-label">Header name</label>
+                <input type="text" class="form-control" id="loadHeaderName" placeholder="My-Custom-Header-Name"/>
+            </div>
+
+            <div class="col">
+                <label for="loadHeaderValue" class="form-label">Header value</label>
+                <input type="text" class="form-control" id="loadHeaderValue" placeholder="X-custom-header-value"/>
+            </div>
+
+            <div class="col-md-1 d-flex justify-content-end">
+                <button id="addHeaderButton" type="button" class="btn btn-outline-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-plus" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="container mt-2">
+                <ul id="headerList" class="list-group"></ul>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <label for="loadRequestBody" class="form-label">Request body</label>
+            <textarea class="form-control" id="loadRequestBody" rows="3"></textarea>
+        </div>
+
+        <div class="row mt-2">
+            <div class="col-md-6">
+                <label for="expectedStatusCodeInputId" class="form-label">Expected success response status code</label>
+                <input type="number" step="1" class="form-control" id="expectedStatusCodeInputId" value="200" placeholder="any">
+                <div class="invalid-feedback">Must be integer</div>
+            </div>
+
+            <div class="col-md-6">
+                <label for="responseTimeoutInputId" class="form-label">Response timeout, ms</label>
+                <input type="number" step="1" class="form-control" id="responseTimeoutInputId" min="1" value="100" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button id="addItemButton" type="submit" class="btn btn-outline-primary col-md-12">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-plus" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+        </button>
+    </div>
+</form>
+
+<div class="container mt-2">
+    <ul id="preyList" class="list-group"></ul>
+</div>
+
+<div class="container mb-3 sticky-container" id="sliderStickyContainer">
+    <div class="mt-2 row d-flex align-items-center">
+        <div class="container mt-2 col">
+            <div class="d-flex justify-content-center">
+                <label class="form-label matte-background" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold"
+                                                                                                        id="sliderAmount">0</span>
+            </div>
+            <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="4" value="0" list="tickmarks" class="form-range matte-background"/>
+            <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
+                <datalist id="tickmarks" class=" col-md-12">
+                    <option value="0" label="disable"></option>
+                    <option value="100" label="100"></option>
+                    <option value="200" label="200"></option>
+                    <option value="300" label="300"></option>
+                    <option value="400" label="400"></option>
+                    <option value="500" label="500"></option>
+                    <option value="600" label="600"></option>
+                    <option value="700" label="700"></option>
+                    <option value="800" label="800"></option>
+                    <option value="900" label="900"></option>
+                    <option value="1000" label="1000"></option>
+                </datalist>
+            </div>
+        </div>
+
+        <div class="col-md-1 justify-content-end" id="stickyButtonContainer">
+            <button id="additionalSliderOptions" type="button" class="btn btn-outline-info" data-bs-toggle="collapse"
+                    data-bs-target="#additionalSliderOptionsForm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-chevron-compact-down" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd"
+                          d="M1.553 6.776a.5.5 0 0 1 .67-.223L8 9.44l5.776-2.888a.5.5 0 1 1 .448.894l-6 3a.5.5 0 0 1-.448 0l-6-3a.5.5 0 0 1-.223-.67z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="additionalSliderOptionsForm" class="collapse">
+    <div class="container">
+        <div class="row mb-3 d-flex align-items-center">
+            <div class="col-md-6">
+                <label for="loadTimeInputId" class="form-label">Load time, s</label>
+                <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+
+            <div class="d-flex justify-content-end col-md-6">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput">
+                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- chart -->
+<div class="container-fluid" id="chartContainer"></div>
+
+<script type="module">
+    import './index.js';
+    import './model.js';
+</script>
+</body>
+</html>
