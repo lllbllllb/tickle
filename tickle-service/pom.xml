@@ -11,6 +11,7 @@
     </parent>
 
     <artifactId>tickle-service</artifactId>
+    <name>Tickle - Service</name>
 
     <dependencies>
         <dependency>

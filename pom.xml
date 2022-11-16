@@ -13,7 +13,8 @@
     <groupId>com.lllbllllb</groupId>
     <artifactId>tickle</artifactId>
     <version>${revision}</version>
-    <name>tickle</name>
+    <name>Tickle - Parent</name>
+
     <packaging>pom</packaging>
 
     <properties>
