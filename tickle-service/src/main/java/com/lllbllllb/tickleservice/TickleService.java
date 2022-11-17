@@ -9,6 +9,20 @@ import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionException;
 
+import com.lllbllllb.tickleservice.model.CountdownTick;
+import com.lllbllllb.tickleservice.model.Prey;
+import com.lllbllllb.tickleservice.model.TickleOptions;
+import com.lllbllllb.tickleservice.model.TouchResult;
+import com.lllbllllb.tickleservice.stateful.CountdownService;
+import com.lllbllllb.tickleservice.stateful.CurrentTickleService;
+import com.lllbllllb.tickleservice.stateful.Finalizable;
+import com.lllbllllb.tickleservice.stateful.HitResultService;
+import com.lllbllllb.tickleservice.stateful.HttpRequestService;
+import com.lllbllllb.tickleservice.stateful.Initializable;
+import com.lllbllllb.tickleservice.stateful.OutputStreamService;
+import com.lllbllllb.tickleservice.stateful.SessionService;
+import com.lllbllllb.tickleservice.stateful.TickleOptionsService;
+import com.lllbllllb.tickleservice.stateful.Resettable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,7 +33,7 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LoaderService {
+public class TickleService {
 
     private final HttpClient httpClient;
 
@@ -31,11 +45,13 @@ public class LoaderService {
 
     private final HitResultService hitResultService;
 
-    private final LoadService loadService;
+    private final CurrentTickleService currentTickleService;
 
-    private final LoadOptionsService loadOptionsService;
+    private final TickleOptionsService tickleOptionsService;
 
     private final CountdownService countdownService;
+
+    private final OutputStreamService outputStreamService;
 
     private final List<Finalizable> finalizables;
 
@@ -43,16 +59,17 @@ public class LoaderService {
 
     private final List<Initializable> initializables;
 
-    public void load(String preyName, LoadOptions loadOptions) {
+    public void load(String preyName, TickleOptions tickleOptions) {
         resettables.forEach(resettable -> resettable.reset(preyName));
-        loadOptionsService.updateLoadOptions(preyName, loadOptions);
-        loadOptionsService.getLoadInterval(preyName)
+        tickleOptionsService.updateLoadOptions(preyName, tickleOptions);
+        tickleOptionsService.getLoadInterval(preyName)
             .doOnNext(interval -> countdownService.runCountdown(
                 preyName,
-                loadOptions,
-                countdownTick -> sessionService.publishACountdownTick(preyName, countdownTick),
+                tickleOptions,
+                countdownTick -> outputStreamService.pushACountdownTick(preyName, countdownTick),
                 () -> resettables.forEach(resettable -> resettable.reset(preyName))
             ))
+            .subscribeOn(Schedulers.boundedElastic())
             .map(interval -> Flux.interval(interval)
                 .onBackpressureDrop(dropped -> log.warn("Tick {} was dropped due to lack of requests", dropped))// https://stackoverflow.com/a/60092653
                 .parallel().runOn(Schedulers.newParallel(preyName))
@@ -80,25 +97,27 @@ public class LoaderService {
                                 || CancellationException.class.equals(throwable.getCause().getClass()))) {
                                 return hitResultService.applyTimeout(preyName, number, responseTime);
                             } else {
+                                log.error(throwable.getMessage(), throwable);
+
                                 return hitResultService.applyError(preyName, number, responseTime);
                             }
                         }));
-                }, false, loadOptionsService.getMaxConcurrency(preyName), 1)
+                }, false, tickleOptionsService.getMaxConcurrency(preyName), 1)
                 .subscribe(
-                    event -> sessionService.publishAttemptResult(preyName, event),
+                    event -> outputStreamService.pushTouchResult(preyName, event),
                     throwable -> finalizePrey(preyName),
                     () -> finalizePrey(preyName)
                 )
             )
-            .subscribe(disposable -> loadService.registerActiveLoaderDisposable(preyName, disposable));
+            .subscribe(disposable -> currentTickleService.registerActiveLoaderDisposable(preyName, disposable));
     }
 
-    public Flux<HitResult> getLoadEventStream(String preyName) {
-        return sessionService.subscribeToAttemptResultStream(preyName);
+    public Flux<TouchResult> getTouchResultStream(String preyName) {
+        return outputStreamService.getTouchResultStream(preyName);
     }
 
-    public Flux<CountdownTick> getTimerEventStream(String preyName) {
-        return sessionService.subscribeToCountdownTickStream(preyName);
+    public Flux<CountdownTick> getCountdownTickStream(String preyName) {
+        return outputStreamService.getCountdownTickStream(preyName);
     }
 
     public void registerPrey(Prey prey) {
@@ -109,9 +128,9 @@ public class LoaderService {
 
     public void disconnectPrey(String preyName) {
         var stopWhenDisconnect = getLoadConfiguration().stopWhenDisconnect();
-        var sessionsLeft = sessionService.handleUnsubscribeFromAttemptResultStream(preyName);
+        var hasSubscribers = outputStreamService.hasSubscribers(preyName);
 
-        if (sessionsLeft < 1 && stopWhenDisconnect) {
+        if (!hasSubscribers && stopWhenDisconnect) {
             resettables.forEach(resettable -> resettable.reset(preyName));
         }
     }
@@ -126,7 +145,7 @@ public class LoaderService {
         return sessionService.getAllPreys();
     }
 
-    public LoadOptions getLoadConfiguration() {
-        return loadOptionsService.getLoadOptions();
+    public TickleOptions getLoadConfiguration() {
+        return tickleOptionsService.getLoadOptions();
     }
 }

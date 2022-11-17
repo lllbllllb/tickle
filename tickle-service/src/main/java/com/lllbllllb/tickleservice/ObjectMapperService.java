@@ -1,6 +1,7 @@
 package com.lllbllllb.tickleservice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.lllbllllb.tickleservice.model.TickleOptions;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
@@ -12,8 +13,8 @@ public class ObjectMapperService {
     private final ObjectMapper objectMapper;
 
     @SneakyThrows
-    public LoadOptions fromJson(String json) {
-        return objectMapper.readValue(json, LoadOptions.class);
+    public TickleOptions fromJson(String json) {
+        return objectMapper.readValue(json, TickleOptions.class);
     }
 
     @SneakyThrows

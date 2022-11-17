@@ -1,24 +1,26 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.stateful;
 
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.lllbllllb.tickleservice.model.TickleOptions;
+import com.lllbllllb.tickleservice.model.Prey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 @Slf4j
 @Service
-public class LoadOptionsService implements Initializable, Finalizable {
+public class TickleOptionsService implements Initializable, Finalizable {
 
-    private static final LoadOptions DEFAULT_LOAD_CONFIGURATION = new LoadOptions(0, false, 30);
+    private static final TickleOptions DEFAULT_LOAD_CONFIGURATION = new TickleOptions(0, false, 30);
 
     private static final long NANOS_PER_SECOND =  1000_000_000L;
 
-    private final Map<String, LoadOptions> nameToLoadOptionsMap = new ConcurrentHashMap<>();
+    private final Map<String, TickleOptions> nameToLoadOptionsMap = new ConcurrentHashMap<>();
 
-    public LoadOptions getLoadOptions() {
+    public TickleOptions getLoadOptions() {
         if (nameToLoadOptionsMap.size() > 0) {
             return nameToLoadOptionsMap.values().iterator().next();
         } else {
@@ -26,7 +28,7 @@ public class LoadOptionsService implements Initializable, Finalizable {
         }
     }
 
-    public LoadOptions getLoadOptions(String preyName) {
+    public TickleOptions getLoadOptions(String preyName) {
         var configuration = nameToLoadOptionsMap.get(preyName);
 
         if (configuration != null) {
@@ -36,8 +38,8 @@ public class LoadOptionsService implements Initializable, Finalizable {
         throw new IllegalStateException("Load configuration for [%s] not exists".formatted(preyName));
     }
 
-    public void updateLoadOptions(String preyName, LoadOptions loadOptions) {
-        nameToLoadOptionsMap.put(preyName, loadOptions);
+    public void updateLoadOptions(String preyName, TickleOptions tickleOptions) {
+        nameToLoadOptionsMap.put(preyName, tickleOptions);
     }
 
     public Mono<Duration> getLoadInterval(String preyName) {

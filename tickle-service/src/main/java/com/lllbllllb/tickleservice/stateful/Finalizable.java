@@ -1,4 +1,4 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.stateful;
 
 public interface Finalizable {
 

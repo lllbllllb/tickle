@@ -1,10 +1,12 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.stateful;
 
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
+import com.lllbllllb.tickleservice.model.CountdownTick;
+import com.lllbllllb.tickleservice.model.TickleOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.Disposable;
@@ -18,11 +20,11 @@ public class CountdownService implements Finalizable, Resettable {
 
     public void runCountdown(
         String preyName,
-        LoadOptions loadOptions,
+        TickleOptions tickleOptions,
         Consumer<CountdownTick> countdownTickConsumer,
         Runnable finallyCallback
     ) {
-        var loadTime = loadOptions.loadTimeSec();
+        var loadTime = tickleOptions.loadTimeSec();
         var disposable = Flux.range(1, loadTime)
             .delayElements(Duration.ofSeconds(1))
             .doFinally(signal -> finallyCallback.run())

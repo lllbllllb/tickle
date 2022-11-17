@@ -5,6 +5,8 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
+import com.lllbllllb.tickleservice.model.Prey;
+import com.lllbllllb.tickleservice.model.TickleOptions;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -78,7 +80,7 @@ public class TickleServiceAutoConfiguration {
 
     @Bean
     WebSocketHandler loadWebSocketHandler(
-        LoaderService loaderService,
+        TickleService tickleService,
         ObjectMapperService objectMapperService
     ) {
         return session -> {
@@ -88,17 +90,17 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            var out = loaderService.getLoadEventStream(preyName)
+            var out = tickleService.getTouchResultStream(preyName)
                 .map(objectMapperService::toJson)
                 .map(session::textMessage)
                 .as(session::send)
-                .doOnCancel(() -> loaderService.disconnectPrey(preyName));
+                .doOnCancel(() -> tickleService.disconnectPrey(preyName));
             var in = session.receive()
                 .doOnNext(webSocketMessage -> {
                     var json = webSocketMessage.getPayloadAsText();
                     var incomeEvent = objectMapperService.fromJson(json);
 
-                    loaderService.load(preyName, incomeEvent);
+                    tickleService.load(preyName, incomeEvent);
                 })
                 .doOnError(err -> log.error(err.getMessage(), err))
                 .then();
@@ -109,7 +111,7 @@ public class TickleServiceAutoConfiguration {
 
     @Bean
     WebSocketHandler countdownWebSocketHandler(
-        LoaderService loaderService,
+        TickleService tickleService,
         ObjectMapperService objectMapperService
     ) {
         return session -> {
@@ -119,7 +121,7 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            return loaderService.getTimerEventStream(preyName)
+            return tickleService.getCountdownTickStream(preyName)
                 .map(objectMapperService::toJson)
                 .map(session::textMessage)
                 .as(session::send)
@@ -128,25 +130,25 @@ public class TickleServiceAutoConfiguration {
     }
 
     @Bean
-    RouterFunction<ServerResponse> loaderRestController(LoaderService loaderService) {
+    RouterFunction<ServerResponse> loaderRestController(TickleService tickleService) {
         var urlPrey = "/prey";
         var urlRps = "/loadParameters";
 
         return route(POST(urlPrey), request -> request.bodyToMono(Prey.class)
             .flatMap(prey -> {
-                loaderService.registerPrey(prey);
+                tickleService.registerPrey(prey);
 
                 return noContent().build();
             }))
-            .and(route(GET(urlPrey), request -> ok().body(Flux.fromIterable(loaderService.getAllPreys()), Prey.class)))
+            .and(route(GET(urlPrey), request -> ok().body(Flux.fromIterable(tickleService.getAllPreys()), Prey.class)))
             .and(route(DELETE(urlPrey + "/{name}"), request -> {
                 var name = request.pathVariable("name");
 
-                loaderService.finalizePrey(name);
+                tickleService.finalizePrey(name);
 
                 return noContent().build();
             }))
-            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(loaderService::getLoadConfiguration), LoadOptions.class)));
+            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getLoadConfiguration), TickleOptions.class)));
     }
 
     @Bean

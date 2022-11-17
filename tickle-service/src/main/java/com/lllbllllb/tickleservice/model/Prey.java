@@ -1,4 +1,4 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.model;
 
 import java.util.Map;
 

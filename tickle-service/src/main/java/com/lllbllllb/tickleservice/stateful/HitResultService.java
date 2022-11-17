@@ -1,15 +1,16 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.stateful;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.lllbllllb.tickleservice.model.TouchResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import static com.lllbllllb.tickleservice.HitResult.Status.SUCCESS;
-import static com.lllbllllb.tickleservice.HitResult.Status.TIMEOUT;
-import static com.lllbllllb.tickleservice.HitResult.Status.UNEXPECTED_STATUS;
+import static com.lllbllllb.tickleservice.model.TouchResult.Status.SUCCESS;
+import static com.lllbllllb.tickleservice.model.TouchResult.Status.TIMEOUT;
+import static com.lllbllllb.tickleservice.model.TouchResult.Status.UNEXPECTED_STATUS;
 
 @Slf4j
 @Service
@@ -21,28 +22,28 @@ public class HitResultService implements Finalizable, Resettable {
 
     private final Map<String, AtomicLong> preyNameToErrorCountMap = new ConcurrentHashMap<>();
 
-    public HitResult applySuccess(String preyName, long attemptNumber, long responseTime) {
+    public TouchResult applySuccess(String preyName, long attemptNumber, long responseTime) {
         var successCount = preyNameToSuccessCountMap.get(preyName).incrementAndGet();
         var timeoutCount = preyNameToTimeoutCountMap.get(preyName).get();
         var errorCount = preyNameToErrorCountMap.get(preyName).get();
 
-        return new HitResult(responseTime, SUCCESS, attemptNumber, successCount, timeoutCount, errorCount);
+        return new TouchResult(responseTime, SUCCESS, attemptNumber, successCount, timeoutCount, errorCount);
     }
 
-    public HitResult applyTimeout(String preyName, long attemptNumber, long responseTime) {
+    public TouchResult applyTimeout(String preyName, long attemptNumber, long responseTime) {
         var successCount = preyNameToSuccessCountMap.get(preyName).get();
         var timeoutCount = preyNameToTimeoutCountMap.get(preyName).incrementAndGet();
         var errorCount = preyNameToErrorCountMap.get(preyName).get();
 
-        return new HitResult(responseTime, TIMEOUT, attemptNumber, successCount, timeoutCount, errorCount);
+        return new TouchResult(responseTime, TIMEOUT, attemptNumber, successCount, timeoutCount, errorCount);
     }
 
-    public HitResult applyError(String preyName, long attemptNumber, long responseTime) {
+    public TouchResult applyError(String preyName, long attemptNumber, long responseTime) {
         var successCount = preyNameToSuccessCountMap.get(preyName).get();
         var timeoutCount = preyNameToTimeoutCountMap.get(preyName).get();
         var errorCount = preyNameToErrorCountMap.get(preyName).incrementAndGet();
 
-        return new HitResult(responseTime, UNEXPECTED_STATUS, attemptNumber, successCount, timeoutCount, errorCount);
+        return new TouchResult(responseTime, UNEXPECTED_STATUS, attemptNumber, successCount, timeoutCount, errorCount);
     }
 
     @Override

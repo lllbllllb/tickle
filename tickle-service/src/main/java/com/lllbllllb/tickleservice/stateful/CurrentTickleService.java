@@ -1,8 +1,10 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.stateful;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.lllbllllb.tickleservice.stateful.Finalizable;
+import com.lllbllllb.tickleservice.stateful.Resettable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,7 +13,7 @@ import reactor.core.Disposable;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LoadService implements Finalizable, Resettable {
+public class CurrentTickleService implements Finalizable, Resettable {
 
     private final Map<String, Disposable> preyNameToDisposableMap = new ConcurrentHashMap<>();
 

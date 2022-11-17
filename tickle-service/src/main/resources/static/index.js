@@ -1,4 +1,5 @@
 import {ColorGroup, ColorPack, Prey} from "./model.js"
+import {preyList} from "./constants.js";
 
 const colorPack = new ColorPack(
     new ColorGroup('rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0.5)'),
@@ -17,57 +18,62 @@ let headerNameToValueMap = {
     "Accept-Encoding": "gzip, deflate, br"
 };
 
-
 await registerSliderForm();
 registerSubmitNewPreyEventListener();
 await reloadPreys();
 registerAddHeaderButtonButton();
 renderHeaders();
 
-function renderPrey(name, url, method, requestParameters, headers, requestBody, timeoutMs, expectedResponseStatusCode) {
-    const listElementId = "prey_" + name;
-    const accordionButtonId = "prey_name_" + name;
-    const bodyId = "prey_url_" + name;
-    const deleteButtonId = "prey_button_" + name;
-    const accordionId = "prey_accordion_" + name;
-    const enablePreySwitchId = "enable_prey_" + name;
-    let headersList = "";
-    for (const header in headers) {
-        if (header) {
-            headersList += `<div>${header}: ${headers[header]}</div>`;
+async function renderPrey(prey) {
+    const _prey = Object.assign(new Prey(), prey)
+    const _deleteButtonId = "prey_delete_button_" + _prey.name;
+    const _accordionId = "prey_accordion_" + _prey.name;
+    let _headersList = "";
+    for (const _header in _prey.headers) {
+        if (_header) {
+            _headersList += `<div>${_header}: ${_prey.headers[_header]}</div>`;
         }
     }
-    const listElement = `
-                <li id="${listElementId}" class="container list-group-item">
+    const _listElement = `
+                <li id="prey_${_prey.name}" class="container list-group-item">
                     <div class="row">
                         <div class="col-md-1 d-flex align-items-center">
                             <div class="form-check form-switch d-flex align-items-center">
-                              <input class="form-check-input" type="checkbox" role="switch" id="${enablePreySwitchId}" checked>
+                              <input class="form-check-input" type="checkbox" role="switch" id="enable_prey_${_prey.name}" checked>
                             </div>
                         </div>
 
                         <div class="accordion accordion-flush col" id="accordionFlushExample">
                             <div class="accordion-item">
                                 <div class="accordion-header" id="flush-headingOne">
-                                    <button id="${accordionButtonId}" class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#${accordionId}" aria-expanded="false" aria-controls="flush-collapseOne">${name}</button>
+                                    <button id="prey_name_${_prey.name}" 
+                                    class="accordion-button collapsed" 
+                                    type="button" 
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#${_accordionId}" 
+                                    aria-expanded="false" 
+                                    aria-controls="flush-collapseOne">${_prey.name}</button>
                                 </div>
-                                <div id="${accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
-                                    <div id="${bodyId}" class="accordion-body">${method}: ${url}${requestParameters ? '?' + requestParameters : ''}</div>
-                                    ${headersList ? `<div class="accordion-body">${headersList}</div>` : ""}
-                                    ${requestBody ? `<div class="accordion-body">
-                                        <textarea class="form-control" rows="6" disabled>${requestBody}</textarea>
+                                
+                                <div id="${_accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
+                                    <div id="prey_url_${_prey.name}" class="accordion-body">${_prey.method}: ${_prey.path}${_prey.requestParameters ? '?' + _prey.requestParameters : ''}</div>
+                                    
+                                    ${_headersList ? `<div class="accordion-body">${_headersList}</div>` : ""}
+                                    
+                                    ${_prey.requestBody ? `<div class="accordion-body">
+                                        <textarea class="form-control" rows="6" disabled>${_prey.requestBody}</textarea>
                                     </div>` : ''}
 
                                     <div class="row accordion-body">
-                                        <div class="col-md-6 d-flex">Expected success response status code is ${expectedResponseStatusCode}</div>
-                                        <div class="col-md-6 d-flex justify-content-end">Response timeout ${timeoutMs} ms</div>
+                                        <div class="col-md-6 d-flex">Expected success response status code is ${_prey.expectedResponseStatusCode}</div>
+                                        <div class="col-md-6 d-flex justify-content-end">Response timeout ${_prey.timeoutMs} ms</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-1 d-flex justify-content-end">
-                            <button id="${deleteButtonId}" type="button" class="btn btn-outline-danger">
+                            <button id="${_deleteButtonId}" type="button" class="btn btn-outline-danger">
                                 <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
                                     <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
                                 </svg>
@@ -77,9 +83,18 @@ function renderPrey(name, url, method, requestParameters, headers, requestBody, 
                 </li>
             `;
 
-    document.getElementById("preyList").insertAdjacentHTML("beforeend", listElement);
-
-    registerDeleteItemButton(deleteButtonId, name);
+    preyList.insertAdjacentHTML("beforeend", _listElement);
+    document.getElementById(_deleteButtonId).onclick = async () => {
+        if (preysToLoad[_prey.name]) {
+            await fetch("http://localhost:8088/prey/" + _prey.name, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            })
+            await reloadPreys();
+        }
+    }
 }
 
 async function registerSliderForm() {
@@ -150,17 +165,7 @@ function registerSubmitNewPreyEventListener() {
     });
 }
 
-
-function registerDeleteItemButton(id, name) {
-    document.getElementById(id).onclick = async () => {
-        if (preysToLoad[name]) {
-            await unregisterPrey(name);
-        }
-    }
-}
-
 async function reloadPreys() {
-    const preyList = document.getElementById("preyList");
     preyList.innerHTML = "";
     const chartContainer = document.getElementById("chartContainer");
     chartContainer.innerHTML = "";
@@ -177,19 +182,14 @@ async function reloadPreys() {
     const preys = await response.json();
 
     await preys.forEach((prey, index, array) => {
-        const name = prey.name;
-        const url = prey.path;
-        const method = prey.method;
-        const requestParameters = prey.requestParameters;
-        const headers = prey.headers;
-        const requestBody = prey.requestBody;
-        const timeout = prey.timeoutMs;
-        const expectedResponseStatusCode = prey.expectedResponseStatusCode;
-        preysToLoad[name] = url;
-        renderPrey(name, url, method, requestParameters, headers, requestBody, timeout, expectedResponseStatusCode);
-        renderPreyCharts(name);
-        connectToLoadWs(name);
-        connectToCountdownWs(name);
+        const _prey = Object.assign(new Prey(), prey)
+        const _name = _prey.name;
+
+        preysToLoad[_name] = _prey.path;
+        renderPrey(prey);
+        renderPreyCharts(_name);
+        connectToLoadWs(_name);
+        connectToCountdownWs(_name);
     });
 }
 
@@ -211,16 +211,6 @@ async function registerPrey(name, url, method, requestParameters, headers, reque
             "Content-Type": "application/json"
         },
         body: JSON.stringify(body)
-    })
-    await reloadPreys();
-}
-
-async function unregisterPrey(name) {
-    await fetch("http://localhost:8088/prey/" + name, {
-        method: "DELETE",
-        headers: {
-            "Content-Type": "application/json"
-        }
     })
     await reloadPreys();
 }
@@ -596,8 +586,6 @@ function registerDeleteHeaderButton(id, name) {
 
 function onSliderStickyContainerEvent() {
     const stickyContainer = document.getElementById("sliderStickyContainer");
-
-
     const observer = new IntersectionObserver(
         ([e]) => {
             const target = e.target;

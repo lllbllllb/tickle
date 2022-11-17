@@ -1,6 +1,6 @@
-package com.lllbllllb.tickleservice;
+package com.lllbllllb.tickleservice.model;
 
-public record HitResult(
+public record TouchResult(
     long responseTime,
 
     Status status,

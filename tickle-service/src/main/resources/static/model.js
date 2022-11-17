@@ -1,12 +1,36 @@
-export function ColorGroup(borderColor, backgroundColor) {
-    this.borderColor = borderColor;
-    this.backgroundColor = backgroundColor;
+export class ColorGroup {
+    constructor(borderColor, backgroundColor) {
+        this._borderColor = borderColor;
+        this._backgroundColor = backgroundColor;
+    }
+
+    get borderColor() {
+        return this._borderColor;
+    }
+
+    get backgroundColor() {
+        return this._backgroundColor;
+    }
 }
 
-export function ColorPack(success, timeout, error) {
-    this.success = success;
-    this.timeout = timeout;
-    this.error = error;
+export class ColorPack {
+    constructor(success, timeout, error) {
+        this._success = success;
+        this._timeout = timeout;
+        this._error = error;
+    }
+
+    get success() {
+        return this._success;
+    }
+
+    get timeout() {
+        return this._timeout;
+    }
+
+    get error() {
+        return this._error;
+    }
 }
 
 export class Prey {
@@ -20,4 +44,5 @@ export class Prey {
         this.timeoutMs = timeoutMs;
         this.expectedResponseStatusCode = expectedResponseStatusCode;
     }
+
 }
