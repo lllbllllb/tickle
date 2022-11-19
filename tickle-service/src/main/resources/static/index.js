@@ -1,114 +1,23 @@
-import {ColorGroup, ColorPack, Prey, UrlProvider} from "./model.js"
-import {preyList} from "./constants.js";
+import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, Prey, StateContainer, UrlProvider} from "./model.js"
+import {renderCanvasesRow, renderHeader, renderPrey} from "./render.js";
 
 const colorPack = new ColorPack(
     new ColorGroup('rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0.5)'),
     new ColorGroup('rgba(255, 255, 0, 1)', 'rgba(255, 255, 0, 0.5)'),
     new ColorGroup('rgba(255, 0, 0, 1)', 'rgba(255, 0, 0, 0.5)')
 );
-const urlProvider = new UrlProvider();
-
-let dataCounters = {};
-let nameToLoadWsMap = {};
-let nameToLineChartMap = {};
-let nameToBarChartMap = {};
-let headerNameToValueMap = {
+const urlProvider = new UrlProvider(window.location);
+const stateContainer = new StateContainer();
+const headerNameToValueMap = {
     "Content-Type": "application/json",
     "Accept": "*/*",
     "Accept-Encoding": "gzip, deflate, br"
 };
 
 await registerSliderForm();
-registerSubmitNewPreyEventListener();
+await registerSubmitNewPreyEventListener();
 await reloadPreys();
-registerAddHeaderButton();
-renderHeaders();
-
-async function renderPrey(prey) {
-    const _prey = Object.assign(new Prey(), prey)
-    const _deleteButtonId = "prey_delete_button_" + _prey.name;
-    const _accordionId = "prey_accordion_" + _prey.name;
-    const _enablePreySwitcherId = `enable_prey_${_prey.name}`;
-    let _headersList = "";
-    for (const _header in _prey.headers) {
-        if (_header) {
-            _headersList += `<div>${_header}: ${_prey.headers[_header]}</div>`;
-        }
-    }
-    const _listElement = `
-                <li id="prey_${_prey.name}" class="container list-group-item">
-                    <div class="row">
-                        <div class="col-md-1 d-flex align-items-center">
-                            <div class="form-check form-switch d-flex align-items-center">
-                              <input class="form-check-input" type="checkbox" role="switch" id="${_enablePreySwitcherId}" ${_prey.enabled ? 'checked' : ''}>
-                            </div>
-                        </div>
-
-                        <div class="accordion accordion-flush col" id="accordionFlushExample">
-                            <div class="accordion-item">
-                                <div class="accordion-header" id="flush-headingOne">
-                                    <button id="prey_name_${_prey.name}" 
-                                    class="accordion-button collapsed" 
-                                    type="button" 
-                                    data-bs-toggle="collapse"
-                                    data-bs-target="#${_accordionId}" 
-                                    aria-expanded="false" 
-                                    aria-controls="flush-collapseOne">${_prey.name}</button>
-                                </div>
-                                
-                                <div id="${_accordionId}" class="accordion-collapse collapse" aria-labelledby="flush-headingOne" data-bs-parent="#accordionFlushExample">
-                                    <div id="prey_url_${_prey.name}" class="accordion-body">${_prey.method}: ${_prey.path}${_prey.requestParameters ? '?' + _prey.requestParameters : ''}</div>
-                                    
-                                    ${_headersList ? `<div class="accordion-body">${_headersList}</div>` : ""}
-                                    
-                                    ${_prey.requestBody ? `<div class="accordion-body">
-                                        <textarea class="form-control" rows="6" disabled>${_prey.requestBody}</textarea>
-                                    </div>` : ''}
-
-                                    <div class="row accordion-body">
-                                        <div class="col-md-6 d-flex">Expected success response status code is ${_prey.expectedResponseStatusCode}</div>
-                                        <div class="col-md-6 d-flex justify-content-end">Response timeout ${_prey.timeoutMs} ms</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-md-1 d-flex justify-content-end">
-                            <button id="${_deleteButtonId}" type="button" class="btn btn-outline-danger">
-                                <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
-                                    <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </li>
-            `;
-
-    preyList.insertAdjacentHTML("beforeend", _listElement);
-
-    document.getElementById(_deleteButtonId).onclick = async () => {
-        await fetch(urlProvider.getPreyUrl(_prey.name), {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json"
-            }
-        })
-        await reloadPreys();
-    }
-
-    document.getElementById(_enablePreySwitcherId).onchange = async function () {
-        console.log(this.checked);
-        await fetch(urlProvider.getPreyUrl(_prey.name), {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                enabled: this.checked
-            })
-        })
-    }
-}
+await renderHeaders();
 
 async function registerSliderForm() {
     onSliderStickyContainerEvent();
@@ -124,9 +33,15 @@ async function registerSliderForm() {
     const loadTimeInputId = document.getElementById("loadTimeInputId");
 
     rpsSlide.onchange = async function () {
-        const value = this.value;
+        const additionalSliderOptionsForm = document.getElementById("additionalSliderOptionsForm");
 
-        await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+        if (additionalSliderOptionsForm.checkValidity()) {
+            const value = this.value;
+            resetCharts();
+            await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+        }
+
+        additionalSliderOptionsForm.classList.add('was-validated');
     }
 
     const loadParameters = await fetch(urlProvider.loadParametersUrl, {
@@ -143,7 +58,21 @@ async function registerSliderForm() {
     stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
 }
 
-function registerSubmitNewPreyEventListener() {
+function onSliderStickyContainerEvent() {
+    const stickyContainer = document.getElementById("sliderStickyContainer");
+    const observer = new IntersectionObserver(
+        ([e]) => {
+            const target = e.target;
+            target.querySelector("#stickyButtonContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+            target.querySelector("#stickyTickmarksContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
+        },
+        {threshold: [1]}
+    );
+
+    observer.observe(stickyContainer)
+}
+
+async function registerSubmitNewPreyEventListener() {
     const preyConfigForm = document.getElementById("preyConfigForm");
 
     preyConfigForm.addEventListener("submit", async (event) => {
@@ -155,10 +84,7 @@ function registerSubmitNewPreyEventListener() {
         const expectedTime = document.getElementById("responseTimeoutInputId").value;
         const expectedResponseStatusCode = document.getElementById("expectedStatusCodeInputId").value;
 
-        preyConfigForm.classList.add('was-validated')
-        event.preventDefault();
-
-        if (preyConfigForm.checkValidity() && !nameToLoadWsMap[newPreyName]) {
+        if (preyConfigForm.checkValidity() && !stateContainer.isExist(newPreyName)) {
             await registerPrey(
                 newPreyName,
                 newPreyUrl,
@@ -172,32 +98,9 @@ function registerSubmitNewPreyEventListener() {
         } else {
             event.stopPropagation();
         }
-    });
-}
 
-async function reloadPreys() {
-    preyList.innerHTML = "";
-    const chartContainer = document.getElementById("chartContainer");
-    chartContainer.innerHTML = "";
-    nameToLoadWsMap = {};
-    nameToLineChartMap = {};
-    const response = await fetch(urlProvider.preyUrl, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        }
-    });
-    const preys = await response.json();
-
-    await preys.forEach((prey, index, array) => {
-        const _prey = Object.assign(new Prey(), prey)
-        const _name = _prey.name;
-
-        renderPrey(prey);
-        renderPreyCharts(_name);
-        connectToLoadWs(_name);
-        connectToCountdownWs(_name);
+        preyConfigForm.classList.add('was-validated')
+        event.preventDefault();
     });
 }
 
@@ -222,9 +125,42 @@ async function registerPrey(name, url, method, requestParameters, headers, reque
     await reloadPreys();
 }
 
+async function reloadPreys() {
+    document.getElementById("preyList").innerHTML = "";
+    const chartContainer = document.getElementById("chartContainer");
+    chartContainer.innerHTML = "";
+    stateContainer.hardReset();
+    const response = await fetch(urlProvider.preyUrl, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+    });
+    const preys = await response.json();
+
+    preys.forEach((prey, index, array) => {
+        const _prey = Object.assign(new Prey(), prey)
+        const _name = _prey.name;
+
+        renderPrey(prey, onDeletePreyAction, onSwitchEnabledPreyAction)
+        renderPreyCharts(_name);
+        connectToLoadWs(_name);
+        connectToCountdownWs(_name);
+    });
+}
+
+function renderPreyCharts(name) {
+    const lineChartId = name + "_line_chart";
+    const barChartId = name + "_bar_chart";
+
+    renderCanvasesRow(lineChartId, barChartId, name);
+    stateContainer.setLineChartContainer(new LineChartContainer(lineChartId, name));
+    stateContainer.setBarChartContainer(new BarChartContainer(barChartId, name, colorPack));
+}
+
 function connectToLoadWs(name) {
     const loadServiceWs = new WebSocket(urlProvider.getLoadWsUrl(name), []);
-    nameToLoadWsMap[name] = loadServiceWs;
     loadServiceWs.onmessage = (event) => {
         appendData(name, JSON.parse(event.data));
     }
@@ -241,20 +177,6 @@ function connectToLoadWs(name) {
     loadServiceWs.onclose = (event) => {
         console.log(`[${name}] disconnected from load ws`)
     }
-}
-
-function appendData(name, data) {
-    appendLineChartData(nameToLineChartMap[name], data);
-    appendBarChartData(nameToBarChartMap[name], data);
-
-    if (!dataCounters[name]) {
-        dataCounters[name] = 0;
-        runChartUpdate(name, Number.MIN_SAFE_INTEGER);
-        console.log(`Chart for [${name}] was waked up`);
-    }
-
-    dataCounters[name]++;
-
 }
 
 function connectToCountdownWs(name) {
@@ -277,28 +199,16 @@ function connectToCountdownWs(name) {
     }
 }
 
-function runChartUpdate(name, prevValue) {
-    const counter = dataCounters[name];
+function appendData(name, data) {
+    appendLineChartData(name, data);
+    appendBarChartData(name, data);
 
-    setTimeout(() => {
-        if (prevValue !== counter) {
-
-            nameToLineChartMap[name]["chart"].update();
-            nameToBarChartMap[name]["chart"].update();
-
-            runChartUpdate(name, counter)
-        } else {
-            dataCounters[name] = 0;
-
-            console.log(`Chart for [${name}] was snooze`);
-        }
-    }, 300); // no less than 300!
-}
-
-function resetCharts() {
-    for (const name in nameToLineChartMap) {
-        nameToLineChartMap[name]["chart"].clear();
+    if (!stateContainer.getDataCounter(name)) {
+        runChartUpdate(name, Number.MIN_SAFE_INTEGER);
+        console.log(`Chart for [${name}] was waked up`);
     }
+
+    stateContainer.incrementDataCounter(name);
 }
 
 function updateCountdown(name, countdownTick) {
@@ -311,189 +221,73 @@ function updateCountdown(name, countdownTick) {
     progressbar.innerHTML = `${currentValue}`;
 }
 
-function renderPreyCharts(name) {
-    const lineChartId = name + "_line_chart";
-    const barChartId = name + "_bar_chart";
+function appendLineChartData(name, report) {
+    const chartContainer = stateContainer.getLineChartContainer(name);
 
-    renderCanvasesRow(lineChartId, barChartId, name);
-    renderLineChart(lineChartId, name);
-    renderBarChart(barChartId, name);
-}
-
-function renderLineChart(chartId, name) {
-    const chartContainer = {};
-    const attemptNumber = [];
-    const responseTime = [];
-    const pointBackgroundColor = [];
-    const pointBorderColor = [];
-    chartContainer["attemptNumber"] = attemptNumber;
-    chartContainer["responseTime"] = responseTime;
-    chartContainer["pointBackgroundColor"] = pointBackgroundColor;
-    chartContainer["pointBorderColor"] = pointBorderColor;
-    chartContainer["chart"] = new Chart(chartId, {
-        type: "line",
-        data: {
-            labels: attemptNumber,
-            datasets: [
-                {
-                    label: 'Response time, ms',
-                    fill: false,
-                    pointBackgroundColor: pointBackgroundColor,
-                    pointBorderColor: pointBorderColor,
-                    pointStyle: 'circle',
-                    pointRadius: 8,
-                    pointHoverRadius: 15,
-                    data: responseTime,
-                    yAxisID: "axisResponseTime"
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            legend: {
-                display: true
-            },
-            animation: false,
-            showLine: false, // disable for all datasets
-            scales: {
-                axisResponseTime: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    min: 0,
-                    text: 'response time'
-                },
-                x: {
-                    display: false
-                }
-            },
-            plugins: {
-                title: {
-                    display: false,
-                    text: name,
-                },
-                decimation: {
-                    enabled: true,
-                    algorithm: 'lttb',
-                    samples: 4,
-                    threshold: 1000
-                }
-            }
-        }
-    });
-
-    nameToLineChartMap[name] = chartContainer;
-}
-
-function renderBarChart(chartId, name) {
-    const chartContainer = {};
-    const successCount = [0];
-    const timeoutCount = [0];
-    const errorCount = [0];
-    chartContainer["successCount"] = successCount;
-    chartContainer["timeoutCount"] = timeoutCount;
-    chartContainer["errorCount"] = errorCount;
-    chartContainer["chart"] = new Chart(chartId, {
-        type: "bar",
-        data: {
-            labels: ['Count'],
-            datasets: [
-                {
-                    label: 'Success',
-                    data: successCount,
-                    borderColor: colorPack.success.borderColor,
-                    backgroundColor: colorPack.success.backgroundColor,
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    borderSkipped: false,
-                },
-                {
-                    label: 'Timeout',
-                    data: timeoutCount,
-                    borderColor: colorPack.timeout.borderColor,
-                    backgroundColor: colorPack.timeout.backgroundColor,
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    borderSkipped: false,
-                },
-                {
-                    label: 'Error',
-                    data: errorCount,
-                    borderColor: colorPack.error.borderColor,
-                    backgroundColor: colorPack.error.backgroundColor,
-                    borderWidth: 2,
-                    borderRadius: 5,
-                    borderSkipped: false,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            animation: false,
-            scales: {
-                x: {
-                    display: false,
-                },
-                y: {
-                    display: true,
-                    type: 'logarithmic',
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                title: {
-                    display: false,
-                    text: name
-                },
-                decimation: {
-                    enabled: false,
-                    algorithm: 'min-max',
-                }
-            }
-        }
-    })
-
-    nameToBarChartMap[name] = chartContainer;
-}
-
-function appendLineChartData(chartContainer, report) {
-    safePush(chartContainer["responseTime"], report["responseTime"]);
-    safePush(chartContainer["attemptNumber"], report["attemptNumber"]);
+    chartContainer.addResponseTime(report["responseTime"]);
+    chartContainer.addAttemptNumber(report["attemptNumber"]);
 
     const status = report["status"];
 
     if (status === "SUCCESS") {
-        safePush(chartContainer["pointBackgroundColor"], colorPack.success.backgroundColor)
-        safePush(chartContainer["pointBorderColor"], colorPack.success.borderColor)
+        chartContainer.addPointColorPack(colorPack.success);
     } else if (status === "TIMEOUT") {
-        safePush(chartContainer["pointBackgroundColor"], colorPack.timeout.backgroundColor)
-        safePush(chartContainer["pointBorderColor"], colorPack.timeout.borderColor)
+        chartContainer.addPointColorPack(colorPack.timeout);
     } else {
-        safePush(chartContainer["pointBackgroundColor"], colorPack.error.backgroundColor)
-        safePush(chartContainer["pointBorderColor"], colorPack.error.borderColor)
+        chartContainer.addPointColorPack(colorPack.error);
     }
 }
 
-function appendBarChartData(chartContainer, report) {
-    const currentSuccessCount = chartContainer["successCount"][0];
-    const newSuccessCount = report["successCount"];
-    if (newSuccessCount > currentSuccessCount) {
-        chartContainer["successCount"][0] = newSuccessCount;
-    }
+function appendBarChartData(name, report) {
+    const chartContainer = stateContainer.getBarChartContainer(name);
 
-    const currentTimeoutCount = chartContainer["timeoutCount"][0];
-    const newTimeoutCount = report["timeoutCount"];
-    if (newTimeoutCount > currentTimeoutCount) {
-        chartContainer["timeoutCount"][0] = newTimeoutCount;
-    }
+    chartContainer.setSuccessCount(report["successCount"]);
+    chartContainer.setTimeoutCount(report["timeoutCount"]);
+    chartContainer.setErrorCount(report["errorCount"]);
+}
 
-    const currentErrorCount = chartContainer["errorCount"][0];
-    const newErrorCount = report["errorCount"];
-    if (newErrorCount > currentErrorCount) {
-        chartContainer["errorCount"][0] = newErrorCount;
-    }
+function runChartUpdate(name, prevValue) {
+    const counter = stateContainer.getDataCounter(name);
+
+    setTimeout(() => {
+        if (prevValue !== counter) {
+
+            stateContainer.getLineChartContainer(name).chart.update();
+            stateContainer.getBarChartContainer(name).chart.update();
+
+            runChartUpdate(name, counter)
+        } else {
+            stateContainer.resetDataCounter(name);
+
+            console.log(`Chart for [${name}] was snooze`);
+        }
+    }, 300); // no less than 300!
+}
+
+async function onDeletePreyAction(name) {
+    await fetch(urlProvider.getPreyUrl(name), {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    })
+    await reloadPreys();
+}
+
+async function onSwitchEnabledPreyAction(that, name) {
+    await fetch(urlProvider.getPreyUrl(name), {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            enabled: that.checked
+        })
+    })
+}
+
+function resetCharts() {
+    stateContainer.reset();
 }
 
 async function runTickle(rps, isStopLoadWhenDisconnect, loadTimeSec) {
@@ -513,96 +307,27 @@ async function runTickle(rps, isStopLoadWhenDisconnect, loadTimeSec) {
     });
 }
 
-function safePush(arr, element, maxSize = 100) {
-    arr.push(element);
-}
-
-function renderCanvasesRow(lineChartId, barChartId, name) {
-    const canvas = `
-                <label class="container-fluid text-center mt-1" for="chart-row-${name}">${name}</label>
-                <div id="chart-row-${name}" class="row justify-content-between">
-
-                    <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start">
-                        <canvas id="${lineChartId}" width="100%" height="22"></canvas>
-                    </div>
-                    <div id="cnavas_${barChartId}" class="col-md-2 align-items-start">
-                        <canvas id="${barChartId}" width="100%" height="116"></canvas>
-                    </div>
-                </div>
-                <div class="progress mb-4">
-                   <div id="load-progressbar-${name}" class="progress-bar progress-bar-striped" role="progressbar" aria-label="Example with label" style="width: 0;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            `;
-
-    document.getElementById("chartContainer").insertAdjacentHTML("beforeend", canvas);
-}
-
-function renderHeaders() {
+async function renderHeaders() {
     const headerList = document.getElementById("headerList");
     headerList.innerHTML = "";
 
     for (const name in headerNameToValueMap) {
-        renderHeader(name, headerNameToValueMap[name]);
+        renderHeader(name, headerNameToValueMap[name], onDeleteHeaderAction);
     }
+
+    await registerAddHeaderButton();
 }
 
-function renderHeader(name, value) {
-    const listElementId = "header_" + name;
-    const headerNameId = "header_name_" + name;
-    const headerValueId = "header_" + value;
-    const deleteHeaderButtonId = "delete_header_button_" + name;
-    const listElement = `
-                <li id="${listElementId}" class="container list-group-item">
-                    <div class="row">
-                        <div class="col-md-5 align-self-center">
-                            <div id="${headerNameId}">${name}</div>
-                        </div>
-
-                        <div class="col align-self-center">
-                            <div id="${headerValueId}">${value}</div>
-                        </div>
-
-                        <div class="col-md-1 d-flex justify-content-end">
-                            <button id="${deleteHeaderButtonId}" type="button" class="btn btn-outline-danger">
-                                <svg id="svgDash" xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-dash" viewBox="0 0 16 16">
-                                    <path d="M4 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 4 8z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </li>
-            `;
-
-    document.getElementById("headerList").insertAdjacentHTML("beforeend", listElement);
-
-    registerDeleteHeaderButton(deleteHeaderButtonId, name);
+async function onDeleteHeaderAction(name) {
+    delete headerNameToValueMap[name];
+    await renderHeaders();
 }
 
-function registerAddHeaderButton() {
-    document.getElementById("addHeaderButton").onclick = function () {
+async function registerAddHeaderButton() {
+    document.getElementById("addHeaderButton").onclick = async function () {
         headerNameToValueMap[document.getElementById("loadHeaderName").value] = document.getElementById("loadHeaderValue").value;
 
-        renderHeaders();
+        await renderHeaders();
     }
 }
 
-function registerDeleteHeaderButton(id, name) {
-    document.getElementById(id).onclick = function () {
-        delete headerNameToValueMap[name];
-        renderHeaders();
-    }
-}
-
-function onSliderStickyContainerEvent() {
-    const stickyContainer = document.getElementById("sliderStickyContainer");
-    const observer = new IntersectionObserver(
-        ([e]) => {
-            const target = e.target;
-            target.querySelector("#stickyButtonContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
-            target.querySelector("#stickyTickmarksContainer").classList.toggle('isSticky', e.intersectionRatio < 1)
-        },
-        {threshold: [1]}
-    );
-
-    observer.observe(stickyContainer)
-}
