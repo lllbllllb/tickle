@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import com.lllbllllb.tickleservice.model.Prey;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -25,12 +26,6 @@ public class SessionService implements Initializable, Finalizable {
         log.info("Session for [{}] was initialized", prey);
     }
 
-    public List<Prey> getAllPreys() {
-        return preyNameToPreyMap.values().stream()
-            .sorted(Comparator.comparing(Prey::name))
-            .collect(Collectors.toList());
-    }
-
     @Override
     public void finalize(String preyName) {
         var prey = preyNameToPreyMap.remove(preyName);
@@ -39,5 +34,39 @@ public class SessionService implements Initializable, Finalizable {
             log.warn("Prey [{}] is already finalized", preyName);
         }
 
+    }
+
+    public List<Prey> getAllEnabledPreys() {
+        return preyNameToPreyMap.values().stream()
+            .filter(Prey::enabled)
+            .collect(Collectors.toList());
+    }
+
+    public List<Prey> getAllPreys() {
+        return preyNameToPreyMap.values().stream()
+            .sorted(Comparator.comparing(Prey::name))
+            .collect(Collectors.toList());
+    }
+
+    public void patchPrey(String preyName, Prey patch) {
+        var original = preyNameToPreyMap.get(preyName);
+
+        if (original == null) {
+            throw new IllegalStateException("No prey found by name [%s]".formatted(preyName));
+        }
+
+        var patched = new Prey(
+            preyName,
+            original.path(),
+            original.method(),
+            original.requestParameters(),
+            original.headers(),
+            original.requestBody(),
+            original.timeoutMs(),
+            original.expectedResponseStatusCode(),
+            ObjectUtils.firstNonNull(patch.enabled(), original.enabled())
+        );
+
+        preyNameToPreyMap.put(preyName, patched);
     }
 }

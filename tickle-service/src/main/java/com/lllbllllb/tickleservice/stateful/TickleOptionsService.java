@@ -2,6 +2,7 @@ package com.lllbllllb.tickleservice.stateful;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.lllbllllb.tickleservice.model.TickleOptions;
@@ -42,14 +43,14 @@ public class TickleOptionsService implements Initializable, Finalizable {
         nameToLoadOptionsMap.put(preyName, tickleOptions);
     }
 
-    public Mono<Duration> getLoadInterval(String preyName) {
+    public Optional<Duration> getLoadInterval(String preyName) {
         var rps = getLoadOptions(preyName).rps();
 
         if (rps > 0) {
-            return Mono.just(Duration.ofNanos(NANOS_PER_SECOND / rps));
+            return Optional.of(Duration.ofNanos(NANOS_PER_SECOND / rps));
         }
 
-        return Mono.empty();
+        return Optional.empty();
     }
 
     public int getMaxConcurrency(String preyName) {

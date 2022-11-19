@@ -32,7 +32,9 @@ import reactor.core.publisher.Mono;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.PATCH;
 import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.PUT;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
@@ -90,22 +92,11 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            var out = tickleService.getTouchResultStream(preyName)
+            return tickleService.getTouchResultStream(preyName)
                 .map(objectMapperService::toJson)
                 .map(session::textMessage)
                 .as(session::send)
                 .doOnCancel(() -> tickleService.disconnectPrey(preyName));
-            var in = session.receive()
-                .doOnNext(webSocketMessage -> {
-                    var json = webSocketMessage.getPayloadAsText();
-                    var incomeEvent = objectMapperService.fromJson(json);
-
-                    tickleService.load(preyName, incomeEvent);
-                })
-                .doOnError(err -> log.error(err.getMessage(), err))
-                .then();
-
-            return Mono.zip(in, out).then();
         };
     }
 
@@ -130,9 +121,9 @@ public class TickleServiceAutoConfiguration {
     }
 
     @Bean
-    RouterFunction<ServerResponse> loaderRestController(TickleService tickleService) {
+    RouterFunction<ServerResponse> preyRestController(TickleService tickleService) {
         var urlPrey = "/prey";
-        var urlRps = "/loadParameters";
+        var urlPreyName = urlPrey + "/{name}";
 
         return route(POST(urlPrey), request -> request.bodyToMono(Prey.class)
             .flatMap(prey -> {
@@ -141,15 +132,40 @@ public class TickleServiceAutoConfiguration {
                 return noContent().build();
             }))
             .and(route(GET(urlPrey), request -> ok().body(Flux.fromIterable(tickleService.getAllPreys()), Prey.class)))
-            .and(route(DELETE(urlPrey + "/{name}"), request -> {
+            .and(route(DELETE(urlPreyName), request -> {
                 var name = request.pathVariable("name");
 
                 tickleService.finalizePrey(name);
 
                 return noContent().build();
             }))
-            .and(route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getLoadConfiguration), TickleOptions.class)));
+            .and(route(PATCH(urlPreyName), request -> request.bodyToMono(Prey.class)
+                .flatMap(prey -> {
+                    var name = request.pathVariable("name");
+
+                    tickleService.patchPrey(name, prey);
+
+                    return noContent().build();
+                })));
     }
+
+    @Bean
+    RouterFunction<ServerResponse> tickleRestController(TickleService tickleService) {
+        var urlPreyLoad = "/prey/tickle";
+
+        return route(PUT(urlPreyLoad), request -> request.bodyToMono(TickleOptions.class)
+            .flatMap(tickleService::load)
+            .then(noContent().build()));
+    }
+
+
+    @Bean
+    RouterFunction<ServerResponse> tickleParametersRestController(TickleService tickleService) {
+        var urlRps = "/loadParameters";
+
+        return route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getLoadConfiguration), TickleOptions.class));
+    }
+
 
     @Bean
     HttpClient httpClient() {

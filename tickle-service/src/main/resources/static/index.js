@@ -1,4 +1,4 @@
-import {ColorGroup, ColorPack, Prey} from "./model.js"
+import {ColorGroup, ColorPack, Prey, UrlProvider} from "./model.js"
 import {preyList} from "./constants.js";
 
 const colorPack = new ColorPack(
@@ -6,9 +6,9 @@ const colorPack = new ColorPack(
     new ColorGroup('rgba(255, 255, 0, 1)', 'rgba(255, 255, 0, 0.5)'),
     new ColorGroup('rgba(255, 0, 0, 1)', 'rgba(255, 0, 0, 0.5)')
 );
+const urlProvider = new UrlProvider();
 
 let dataCounters = {};
-let preysToLoad = {};
 let nameToLoadWsMap = {};
 let nameToLineChartMap = {};
 let nameToBarChartMap = {};
@@ -21,13 +21,14 @@ let headerNameToValueMap = {
 await registerSliderForm();
 registerSubmitNewPreyEventListener();
 await reloadPreys();
-registerAddHeaderButtonButton();
+registerAddHeaderButton();
 renderHeaders();
 
 async function renderPrey(prey) {
     const _prey = Object.assign(new Prey(), prey)
     const _deleteButtonId = "prey_delete_button_" + _prey.name;
     const _accordionId = "prey_accordion_" + _prey.name;
+    const _enablePreySwitcherId = `enable_prey_${_prey.name}`;
     let _headersList = "";
     for (const _header in _prey.headers) {
         if (_header) {
@@ -39,7 +40,7 @@ async function renderPrey(prey) {
                     <div class="row">
                         <div class="col-md-1 d-flex align-items-center">
                             <div class="form-check form-switch d-flex align-items-center">
-                              <input class="form-check-input" type="checkbox" role="switch" id="enable_prey_${_prey.name}" checked>
+                              <input class="form-check-input" type="checkbox" role="switch" id="${_enablePreySwitcherId}" ${_prey.enabled ? 'checked' : ''}>
                             </div>
                         </div>
 
@@ -84,16 +85,28 @@ async function renderPrey(prey) {
             `;
 
     preyList.insertAdjacentHTML("beforeend", _listElement);
+
     document.getElementById(_deleteButtonId).onclick = async () => {
-        if (preysToLoad[_prey.name]) {
-            await fetch("http://localhost:8088/prey/" + _prey.name, {
-                method: "DELETE",
-                headers: {
-                    "Content-Type": "application/json"
-                }
+        await fetch(urlProvider.getPreyUrl(_prey.name), {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+        await reloadPreys();
+    }
+
+    document.getElementById(_enablePreySwitcherId).onchange = async function () {
+        console.log(this.checked);
+        await fetch(urlProvider.getPreyUrl(_prey.name), {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                enabled: this.checked
             })
-            await reloadPreys();
-        }
+        })
     }
 }
 
@@ -110,13 +123,13 @@ async function registerSliderForm() {
     const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
     const loadTimeInputId = document.getElementById("loadTimeInputId");
 
-    rpsSlide.onchange = function () {
+    rpsSlide.onchange = async function () {
         const value = this.value;
 
-        loadServices(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+        await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
     }
 
-    const loadParameters = await fetch("http://localhost:8088/loadParameters", {
+    const loadParameters = await fetch(urlProvider.loadParametersUrl, {
         method: "GET",
         headers: {
             "Content-Type": "application/json",
@@ -132,7 +145,8 @@ async function registerSliderForm() {
 
 function registerSubmitNewPreyEventListener() {
     const preyConfigForm = document.getElementById("preyConfigForm");
-    preyConfigForm.addEventListener("submit", event => {
+
+    preyConfigForm.addEventListener("submit", async (event) => {
         const newPreyName = document.getElementById("newPreyName").value;
         const newPreyUrl = document.getElementById("newPreyUrl").value;
         const method = Array.from(document.getElementById("httpMethodSelector").children).find((selector) => selector.checked).value;
@@ -141,27 +155,23 @@ function registerSubmitNewPreyEventListener() {
         const expectedTime = document.getElementById("responseTimeoutInputId").value;
         const expectedResponseStatusCode = document.getElementById("expectedStatusCodeInputId").value;
 
-        if (preyConfigForm.checkValidity()) {
-            if (!preysToLoad[newPreyName]) {
-                preysToLoad[newPreyName] = newPreyUrl;
+        preyConfigForm.classList.add('was-validated')
+        event.preventDefault();
 
-                registerPrey(
-                    newPreyName,
-                    newPreyUrl,
-                    method,
-                    loadRequestParams,
-                    headerNameToValueMap,
-                    loadRequestBody,
-                    expectedTime,
-                    expectedResponseStatusCode
-                );
-            }
+        if (preyConfigForm.checkValidity() && !nameToLoadWsMap[newPreyName]) {
+            await registerPrey(
+                newPreyName,
+                newPreyUrl,
+                method,
+                loadRequestParams,
+                headerNameToValueMap,
+                loadRequestBody,
+                expectedTime,
+                expectedResponseStatusCode
+            );
         } else {
             event.stopPropagation();
         }
-
-        preyConfigForm.classList.add('was-validated')
-        event.preventDefault();
     });
 }
 
@@ -169,10 +179,9 @@ async function reloadPreys() {
     preyList.innerHTML = "";
     const chartContainer = document.getElementById("chartContainer");
     chartContainer.innerHTML = "";
-    preysToLoad = {};
     nameToLoadWsMap = {};
     nameToLineChartMap = {};
-    const response = await fetch("http://localhost:8088/prey", {
+    const response = await fetch(urlProvider.preyUrl, {
         method: "GET",
         headers: {
             "Content-Type": "application/json",
@@ -185,7 +194,6 @@ async function reloadPreys() {
         const _prey = Object.assign(new Prey(), prey)
         const _name = _prey.name;
 
-        preysToLoad[_name] = _prey.path;
         renderPrey(prey);
         renderPreyCharts(_name);
         connectToLoadWs(_name);
@@ -194,29 +202,28 @@ async function reloadPreys() {
 }
 
 async function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
-    const body = {
-        name: name,
-        path: url,
-        method: method,
-        requestParameters: requestParameters,
-        headers: headers,
-        requestBody: requestBody,
-        timeoutMs: responseTimeout,
-        expectedResponseStatusCode: expectedResponseStatusCode
-    }
-
     await fetch("http://localhost:8088/prey", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({
+            name: name,
+            path: url,
+            method: method,
+            requestParameters: requestParameters,
+            headers: headers,
+            requestBody: requestBody,
+            timeoutMs: responseTimeout,
+            expectedResponseStatusCode: expectedResponseStatusCode,
+            enabled: true
+        })
     })
     await reloadPreys();
 }
 
 function connectToLoadWs(name) {
-    const loadServiceWs = new WebSocket("ws://localhost:8088/websocket/load?" + name, []);
+    const loadServiceWs = new WebSocket(urlProvider.getLoadWsUrl(name), []);
     nameToLoadWsMap[name] = loadServiceWs;
     loadServiceWs.onmessage = (event) => {
         appendData(name, JSON.parse(event.data));
@@ -251,7 +258,7 @@ function appendData(name, data) {
 }
 
 function connectToCountdownWs(name) {
-    const countdownServiceWs = new WebSocket("ws://localhost:8088/websocket/countdown?" + name, []);
+    const countdownServiceWs = new WebSocket(urlProvider.getCountdownWsUrl(name), []);
 
     countdownServiceWs.onopen = (event) => {
         console.log(`[${name}] connected to countdown ws`);
@@ -489,19 +496,21 @@ function appendBarChartData(chartContainer, report) {
     }
 }
 
-function loadServices(rps, isStopLoadWhenDisconnect, loadTimeSec) {
-    for (const name in preysToLoad) {
-        const preyEnabled = document.getElementById("enable_prey_" + name).checked;
-        const msg = {
-            rps: rps,
-            stopWhenDisconnect: isStopLoadWhenDisconnect,
-            loadTimeSec: loadTimeSec,
-        }
-
-        if (preyEnabled) {
-            nameToLoadWsMap[name].send(JSON.stringify(msg));
-        }
+async function runTickle(rps, isStopLoadWhenDisconnect, loadTimeSec) {
+    const body = {
+        rps: rps,
+        stopWhenDisconnect: isStopLoadWhenDisconnect,
+        loadTimeSec: loadTimeSec,
     }
+
+    await fetch(urlProvider.tickleUrl, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        },
+        body: JSON.stringify(body)
+    });
 }
 
 function safePush(arr, element, maxSize = 100) {
@@ -569,7 +578,7 @@ function renderHeader(name, value) {
     registerDeleteHeaderButton(deleteHeaderButtonId, name);
 }
 
-function registerAddHeaderButtonButton() {
+function registerAddHeaderButton() {
     document.getElementById("addHeaderButton").onclick = function () {
         headerNameToValueMap[document.getElementById("loadHeaderName").value] = document.getElementById("loadHeaderValue").value;
 

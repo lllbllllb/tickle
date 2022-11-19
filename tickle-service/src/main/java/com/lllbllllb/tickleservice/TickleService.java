@@ -20,9 +20,9 @@ import com.lllbllllb.tickleservice.stateful.HitResultService;
 import com.lllbllllb.tickleservice.stateful.HttpRequestService;
 import com.lllbllllb.tickleservice.stateful.Initializable;
 import com.lllbllllb.tickleservice.stateful.OutputStreamService;
+import com.lllbllllb.tickleservice.stateful.Resettable;
 import com.lllbllllb.tickleservice.stateful.SessionService;
 import com.lllbllllb.tickleservice.stateful.TickleOptionsService;
-import com.lllbllllb.tickleservice.stateful.Resettable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -59,57 +59,69 @@ public class TickleService {
 
     private final List<Initializable> initializables;
 
-    public void load(String preyName, TickleOptions tickleOptions) {
+
+    public Mono<Void> load(TickleOptions tickleOptions) {
+        return Flux.fromIterable(sessionService.getAllEnabledPreys())
+            .concatMap(prey -> load(prey.name(), tickleOptions))
+            .then();
+    }
+
+    public Mono<Void> load(String preyName, TickleOptions tickleOptions) {
         resettables.forEach(resettable -> resettable.reset(preyName));
         tickleOptionsService.updateLoadOptions(preyName, tickleOptions);
-        tickleOptionsService.getLoadInterval(preyName)
-            .doOnNext(interval -> countdownService.runCountdown(
-                preyName,
-                tickleOptions,
-                countdownTick -> outputStreamService.pushACountdownTick(preyName, countdownTick),
-                () -> resettables.forEach(resettable -> resettable.reset(preyName))
-            ))
-            .subscribeOn(Schedulers.boundedElastic())
-            .map(interval -> Flux.interval(interval)
-                .onBackpressureDrop(dropped -> log.warn("Tick {} was dropped due to lack of requests", dropped))// https://stackoverflow.com/a/60092653
-                .parallel().runOn(Schedulers.newParallel(preyName))
-                .flatMap(i -> {
-                    var number = i + 1;
-                    var httpRequest = httpRequestService.getHttpRequest(preyName);
-                    var start = clock.millis();
 
-                    return Mono.fromFuture(httpClient.sendAsync(httpRequest, responseInfo -> {
-                            var responseTime = clock.millis() - start;
+        return Mono.fromRunnable(() -> tickleOptionsService.getLoadInterval(preyName).ifPresentOrElse(
+            interval -> {
+                countdownService.runCountdown(
+                    preyName,
+                    tickleOptions,
+                    countdownTick -> outputStreamService.pushACountdownTick(preyName, countdownTick),
+                    () -> resettables.forEach(resettable -> resettable.reset(preyName))
+                );
 
-                            if (responseInfo.statusCode() == 200) {
-                                return HttpResponse.BodySubscribers.replacing(hitResultService.applySuccess(preyName, number, responseTime));
-                            } else {
-                                return HttpResponse.BodySubscribers.replacing(hitResultService.applyError(preyName, number, responseTime));
-                            }
-                        })
-                        .thenApply(HttpResponse::body)
-                        .exceptionally(throwable -> {
-                            var responseTime = clock.millis() - start;
+                var disposable = Flux.interval(interval)
+                    .onBackpressureDrop(dropped -> log.warn("Tick {} was dropped due to lack of requests", dropped)) // https://stackoverflow.com/a/60092653
+//                    .publishOn(Schedulers.boundedElastic())
+                    .flatMap(i -> {
+                        var number = i + 1;
+                        var httpRequest = httpRequestService.getHttpRequest(preyName);
+                        var start = clock.millis();
 
-                            if (CompletionException.class.equals(throwable.getClass())
-                                && (HttpTimeoutException.class.equals(throwable.getCause().getClass())
-                                || HttpConnectTimeoutException.class.equals(throwable.getCause().getClass())
-                                || CancellationException.class.equals(throwable.getCause().getClass()))) {
-                                return hitResultService.applyTimeout(preyName, number, responseTime);
-                            } else {
-                                log.error(throwable.getMessage(), throwable);
+                        return Mono.fromFuture(httpClient.sendAsync(httpRequest, responseInfo -> {
+                                var responseTime = clock.millis() - start;
 
-                                return hitResultService.applyError(preyName, number, responseTime);
-                            }
-                        }));
-                }, false, tickleOptionsService.getMaxConcurrency(preyName), 1)
-                .subscribe(
-                    event -> outputStreamService.pushTouchResult(preyName, event),
-                    throwable -> finalizePrey(preyName),
-                    () -> finalizePrey(preyName)
-                )
-            )
-            .subscribe(disposable -> currentTickleService.registerActiveLoaderDisposable(preyName, disposable));
+                                if (responseInfo.statusCode() == 200) {
+                                    return HttpResponse.BodySubscribers.replacing(hitResultService.applySuccess(preyName, number, responseTime));
+                                } else {
+                                    return HttpResponse.BodySubscribers.replacing(hitResultService.applyError(preyName, number, responseTime));
+                                }
+                            })
+                            .thenApply(HttpResponse::body)
+                            .exceptionally(throwable -> {
+                                var responseTime = clock.millis() - start;
+
+                                if (CompletionException.class.equals(throwable.getClass())
+                                    && (HttpTimeoutException.class.equals(throwable.getCause().getClass())
+                                    || HttpConnectTimeoutException.class.equals(throwable.getCause().getClass())
+                                    || CancellationException.class.equals(throwable.getCause().getClass()))) {
+                                    return hitResultService.applyTimeout(preyName, number, responseTime);
+                                } else {
+                                    log.error(throwable.getMessage(), throwable);
+
+                                    return hitResultService.applyError(preyName, number, responseTime);
+                                }
+                            }));
+                    }, tickleOptionsService.getMaxConcurrency(preyName), 1)
+                    .subscribe(
+                        touchResult -> outputStreamService.pushTouchResult(preyName, touchResult),
+                        throwable -> finalizePrey(preyName),
+                        () -> finalizePrey(preyName)
+                    );
+
+                currentTickleService.registerActiveLoaderDisposable(preyName, disposable);
+            },
+            () -> resettables.forEach(resettable -> resettable.reset(preyName))
+        ));
     }
 
     public Flux<TouchResult> getTouchResultStream(String preyName) {
@@ -124,6 +136,10 @@ public class TickleService {
         initializables.forEach(initializable -> initializable.initialize(prey));
 
         log.info("Initialization for [{}] was successfully completed", prey.name());
+    }
+
+    public void patchPrey(String preyName, Prey patch) {
+        sessionService.patchPrey(preyName, patch);
     }
 
     public void disconnectPrey(String preyName) {

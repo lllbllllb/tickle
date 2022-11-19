@@ -1,3 +1,40 @@
+export class UrlProvider {
+    constructor() {
+        this._httpProtocol = "http"
+        this._wsProtocol = "ws"
+        this._host = "localhost:8088"
+        this._preyPath = "prey";
+        this._ticklePath = "tickle";
+        this._loadParametersPath = "loadParameters";
+        this._loadWsPath = "websocket/load";
+        this._countdownWsPath = "websocket/countdown";
+    };
+
+    get preyUrl() {
+        return `${this._httpProtocol}://${this._host}/${this._preyPath}`;
+    }
+
+    getPreyUrl(name) {
+        return `${this._httpProtocol}://${this._host}/${this._preyPath}/${name}`;
+    }
+
+    get tickleUrl() {
+        return `${this._httpProtocol}://${this._host}/${this._preyPath}/${this._ticklePath}`;
+    }
+
+    get loadParametersUrl() {
+        return `${this._httpProtocol}://${this._host}/${this._loadParametersPath}`;
+    }
+
+    getLoadWsUrl(name) {
+        return `${this._wsProtocol}://${this._host}/${this._loadWsPath}?${name}`;
+    }
+
+    getCountdownWsUrl(name) {
+        return `${this._wsProtocol}://${this._host}/${this._countdownWsPath}?${name}`;
+    }
+}
+
 export class ColorGroup {
     constructor(borderColor, backgroundColor) {
         this._borderColor = borderColor;
@@ -34,7 +71,7 @@ export class ColorPack {
 }
 
 export class Prey {
-    constructor(name, path, method, requestParameters, headers, requestBody, timeoutMs, expectedResponseStatusCode) {
+    constructor(name, path, method, requestParameters, headers, requestBody, timeoutMs, expectedResponseStatusCode, enabled) {
         this.name = name;
         this.path = path;
         this.method = method;
@@ -43,6 +80,7 @@ export class Prey {
         this.requestBody = requestBody;
         this.timeoutMs = timeoutMs;
         this.expectedResponseStatusCode = expectedResponseStatusCode;
+        this.enabled = enabled;
     }
 
 }

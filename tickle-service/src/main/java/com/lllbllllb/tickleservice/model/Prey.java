@@ -19,7 +19,9 @@ public record Prey(
 
     long timeoutMs,
 
-    int expectedResponseStatusCode
+    int expectedResponseStatusCode,
+
+    Boolean enabled
 ) {
 
 }
