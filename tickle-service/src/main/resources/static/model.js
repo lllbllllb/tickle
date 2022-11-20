@@ -5,7 +5,7 @@ export class UrlProvider {
         this._host = location.host;
         this._preyPath = "prey";
         this._ticklePath = "tickle";
-        this._loadParametersPath = "loadParameters";
+        this._loadParametersPath = "tickleOptions";
         this._loadWsPath = "websocket/load";
         this._countdownWsPath = "websocket/countdown";
     };
@@ -22,7 +22,7 @@ export class UrlProvider {
         return `${this._httpProtocol}://${this._host}/${this._preyPath}/${this._ticklePath}`;
     }
 
-    get loadParametersUrl() {
+    get tickleOptionsUrl() {
         return `${this._httpProtocol}://${this._host}/${this._loadParametersPath}`;
     }
 

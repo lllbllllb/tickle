@@ -28,7 +28,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 @Slf4j
 @Service
@@ -68,9 +67,9 @@ public class TickleService {
 
     public Mono<Void> load(String preyName, TickleOptions tickleOptions) {
         resettables.forEach(resettable -> resettable.reset(preyName));
-        tickleOptionsService.updateLoadOptions(preyName, tickleOptions);
+        tickleOptionsService.updateLoadOptions(tickleOptions);
 
-        return Mono.fromRunnable(() -> tickleOptionsService.getLoadInterval(preyName).ifPresentOrElse(
+        return Mono.fromRunnable(() -> tickleOptionsService.getLoadInterval().ifPresentOrElse(
             interval -> {
                 countdownService.runCountdown(
                     preyName,
@@ -111,7 +110,7 @@ public class TickleService {
                                     return hitResultService.applyError(preyName, number, responseTime);
                                 }
                             }));
-                    }, tickleOptionsService.getMaxConcurrency(preyName), 1)
+                    }, tickleOptionsService.getMaxConcurrency(), 1)
                     .subscribe(
                         touchResult -> outputStreamService.pushTouchResult(preyName, touchResult),
                         throwable -> finalizePrey(preyName),
@@ -143,7 +142,7 @@ public class TickleService {
     }
 
     public void disconnectPrey(String preyName) {
-        var stopWhenDisconnect = getLoadConfiguration().stopWhenDisconnect();
+        var stopWhenDisconnect = getTickleOptions().stopWhenDisconnect();
         var hasSubscribers = outputStreamService.hasSubscribers(preyName);
 
         if (!hasSubscribers && stopWhenDisconnect) {
@@ -161,7 +160,7 @@ public class TickleService {
         return sessionService.getAllPreys();
     }
 
-    public TickleOptions getLoadConfiguration() {
-        return tickleOptionsService.getLoadOptions();
+    public TickleOptions getTickleOptions() {
+        return tickleOptionsService.getTickleOptions();
     }
 }

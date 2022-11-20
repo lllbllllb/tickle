@@ -44,14 +44,14 @@ async function registerSliderForm() {
         additionalSliderOptionsForm.classList.add('was-validated');
     }
 
-    const loadParameters = await fetch(urlProvider.loadParametersUrl, {
+    const tickleOptions = await fetch(urlProvider.tickleOptionsUrl, {
         method: "GET",
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
     });
-    const loadOptions = await loadParameters.json()
+    const loadOptions = await tickleOptions.json()
 
     rpsSlide.value = loadOptions.rps;
     rpsSliderDiv.innerHTML = loadOptions.rps;
@@ -84,6 +84,8 @@ async function registerSubmitNewPreyEventListener() {
         const expectedTime = document.getElementById("responseTimeoutInputId").value;
         const expectedResponseStatusCode = document.getElementById("expectedStatusCodeInputId").value;
 
+        event.preventDefault();
+
         if (preyConfigForm.checkValidity() && !stateContainer.isExist(newPreyName)) {
             await registerPrey(
                 newPreyName,
@@ -100,7 +102,6 @@ async function registerSubmitNewPreyEventListener() {
         }
 
         preyConfigForm.classList.add('was-validated')
-        event.preventDefault();
     });
 }
 
@@ -140,8 +141,7 @@ async function reloadPreys() {
     const preys = await response.json();
 
     preys.forEach((prey, index, array) => {
-        const _prey = Object.assign(new Prey(), prey)
-        const _name = _prey.name;
+        const _name = prey.name;
 
         renderPrey(prey, onDeletePreyAction, onSwitchEnabledPreyAction)
         renderPreyCharts(_name);

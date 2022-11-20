@@ -161,9 +161,9 @@ public class TickleServiceAutoConfiguration {
 
     @Bean
     RouterFunction<ServerResponse> tickleParametersRestController(TickleService tickleService) {
-        var urlRps = "/loadParameters";
+        var urlRps = "/tickleOptions";
 
-        return route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getLoadConfiguration), TickleOptions.class));
+        return route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getTickleOptions), TickleOptions.class));
     }
 
 
