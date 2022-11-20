@@ -1,5 +1,5 @@
-import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, Prey, StateContainer, UrlProvider} from "./model.js"
-import {renderCanvasesRow, renderHeader, renderPrey, renderHttpMethodSelector} from "./render.js";
+import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, StateContainer, UrlProvider} from "./model.js"
+import {renderCanvasesRow, renderHeader, renderPrey, renderHttpMethodSelector, renderRpsSliderOptions} from "./render.js";
 
 const colorPack = new ColorPack(
     new ColorGroup('rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0.5)'),
@@ -21,29 +21,8 @@ await renderHeaders();
 renderHttpMethodSelectors();
 
 async function registerSliderForm() {
-    onSliderStickyContainerEvent();
 
-    const rpsSlide = document.getElementById('rpsSlide');
-    const rpsSliderDiv = document.getElementById("sliderAmount");
-
-    rpsSlide.oninput = function () {
-        rpsSliderDiv.innerHTML = this.value;
-    }
-
-    const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
     const loadTimeInputId = document.getElementById("loadTimeInputId");
-
-    rpsSlide.onchange = async function () {
-        const additionalSliderOptionsForm = document.getElementById("additionalSliderOptionsForm");
-
-        if (additionalSliderOptionsForm.checkValidity()) {
-            const value = this.value;
-            resetCharts();
-            await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
-        }
-
-        additionalSliderOptionsForm.classList.add('was-validated');
-    }
 
     const tickleOptions = await fetch(urlProvider.tickleOptionsUrl, {
         method: "GET",
@@ -54,9 +33,26 @@ async function registerSliderForm() {
     });
     const loadOptions = await tickleOptions.json()
 
-    rpsSlide.value = loadOptions.rps;
-    rpsSliderDiv.innerHTML = loadOptions.rps;
+    renderRpsSliderOptions(0, loadOptions.rps, rpsSlideOnchangeFunction);
+
+    const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
     stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
+
+    onSliderStickyContainerEvent();
+}
+
+async function rpsSlideOnchangeFunction(that) {
+    const additionalSliderOptionsForm = document.getElementById("additionalSliderOptionsForm");
+    const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
+    const loadTimeInputId = document.getElementById("loadTimeInputId");
+
+    if (additionalSliderOptionsForm.checkValidity()) {
+        const value = that.value;
+        resetCharts();
+        await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+    }
+
+    additionalSliderOptionsForm.classList.add('was-validated');
 }
 
 function onSliderStickyContainerEvent() {

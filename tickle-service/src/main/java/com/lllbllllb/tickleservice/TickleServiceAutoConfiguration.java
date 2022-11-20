@@ -93,8 +93,7 @@ public class TickleServiceAutoConfiguration {
             }
 
             return tickleService.getTouchResultStream(preyName)
-                .map(objectMapperService::toJson)
-                .map(session::textMessage)
+                .map(payload -> session.textMessage(payload.toString()))
                 .as(session::send)
                 .doOnCancel(() -> tickleService.disconnectPrey(preyName));
         };
@@ -113,8 +112,7 @@ public class TickleServiceAutoConfiguration {
             }
 
             return tickleService.getCountdownTickStream(preyName)
-                .map(objectMapperService::toJson)
-                .map(session::textMessage)
+                .map(payload -> session.textMessage(payload.toString()))
                 .as(session::send)
                 .doFinally(signalType -> log.info("Countdown WS handler was disconnected by reason [{}]", signalType));
         };

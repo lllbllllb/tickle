@@ -115,28 +115,7 @@
 
 <div class="container mb-3 sticky-container" id="sliderStickyContainer">
     <div class="mt-2 row d-flex align-items-center">
-        <div class="container mt-2 col">
-            <div class="d-flex justify-content-center">
-                <label class="form-label matte-background" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold"
-                                                                                                        id="sliderAmount">0</span>
-            </div>
-            <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="1000" step="4" value="0" list="tickmarks" class="form-range matte-background"/>
-            <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
-                <datalist id="tickmarks" class=" col-md-12">
-                    <option value="0" label="disable"></option>
-                    <option value="100" label="100"></option>
-                    <option value="200" label="200"></option>
-                    <option value="300" label="300"></option>
-                    <option value="400" label="400"></option>
-                    <option value="500" label="500"></option>
-                    <option value="600" label="600"></option>
-                    <option value="700" label="700"></option>
-                    <option value="800" label="800"></option>
-                    <option value="900" label="900"></option>
-                    <option value="1000" label="1000"></option>
-                </datalist>
-            </div>
-        </div>
+        <div class="container mt-2 col" id="rpsSliderContainer"></div>
 
         <div class="col-md-1 justify-content-end" id="stickyButtonContainer">
             <button id="additionalSliderOptions" type="button" class="btn btn-outline-info" data-bs-toggle="collapse"
@@ -151,21 +130,8 @@
 </div>
 
 <form id="additionalSliderOptionsForm" class="collapse">
-    <div class="container">
-        <div class="row mb-3 d-flex align-items-center">
-            <div class="col-md-6">
-                <label for="loadTimeInputId" class="form-label">Load time, s</label>
-                <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
-                <div class="invalid-feedback">Must be positive integer</div>
-            </div>
+    <div class="container" id="additionalSliderOptionsContainer">
 
-            <div class="d-flex justify-content-end col-md-6">
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput">
-                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
-                </div>
-            </div>
-        </div>
     </div>
 </form>
 

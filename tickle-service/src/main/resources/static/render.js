@@ -13,7 +13,7 @@ export async function renderPrey(prey, onPreyDeleteFunction, onPreyEnabledSwitch
                     <div class="row">
                         <div class="col-md-1 d-flex align-items-center">
                             <div class="form-check form-switch d-flex align-items-center">
-                              <input class="form-check-input" type="checkbox" role="switch" id="${_enablePreySwitcherId}" ${prey.enabled ? 'checked' : ''}>
+                              <input class="form-check-input" type="checkbox" role="switch" id="${_enablePreySwitcherId}" ${prey.enabled ? 'checked' : ''} title="Enable to tickle">
                             </div>
                         </div>
 
@@ -137,4 +137,106 @@ export function renderHttpMethodSelector(method, checked) {
     // render
     document.getElementById("httpMethodSelector").insertAdjacentHTML("beforeend", _methodSelector);
     // render
+}
+
+export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeFunction) {
+    const _currentRps = Number(currentRps);
+    const _resolution = !!resolution ? Number(resolution) : _currentRps === 0 ? 1000 : _currentRps > 1000 ? 10000 : _currentRps > 100 ? 1000 : 100;
+    const _step = _resolution === 100 ? 1 : _resolution === 1000 ? 4 : 10;
+    const _values = [];
+
+    for (let i = 0.1; i < 1; i += 0.1) {
+        _values.push(Math.round(_resolution * i));
     }
+
+    const rpsSliderContainer = document.getElementById("rpsSliderContainer");
+    rpsSliderContainer.innerHTML = "";
+
+    const _rpsSlider = `
+            <div class="d-flex justify-content-center">
+                <label class="form-label matte-background" for="rpsSlide">Load, RPS:&nbsp;</label><span class="form-label" style="font-weight: bold" id="sliderAmount">${currentRps}</span>
+            </div>
+            
+            <input id="rpsSlide" name="rpsSlide" type="range" min="0" max="${_resolution}" step="${_step}" value="${currentRps}" list="tickmarks" class="form-range matte-background"/>
+            
+            <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
+                <datalist id="tickmarks" class=" col-md-12">
+                    <option value="0" label="disable"></option>
+                    <option value="${_values[0]}" label="${_values[0]}"></option>
+                    <option value="${_values[1]}" label="${_values[1]}"></option>
+                    <option value="${_values[2]}" label="${_values[2]}"></option>
+                    <option value="${_values[3]}" label="${_values[3]}"></option>
+                    <option value="${_values[4]}" label="${_values[4]}"></option>
+                    <option value="${_values[5]}" label="${_values[5]}"></option>
+                    <option value="${_values[6]}" label="${_values[6]}"></option>
+                    <option value="${_values[7]}" label="${_values[7]}"></option>
+                    <option value="${_values[8]}" label="${_values[8]}"></option>
+                    <option value="${_resolution}" label="${_resolution}"></option>
+                </datalist>
+            </div>
+    `;
+
+    // render
+    rpsSliderContainer.insertAdjacentHTML("beforeend", _rpsSlider);
+    // render
+
+    const rpsSlide = document.getElementById('rpsSlide');
+    const rpsSliderDiv = document.getElementById("sliderAmount");
+
+    rpsSlide.oninput = function () {
+        rpsSliderDiv.innerHTML = this.value;
+    }
+
+    rpsSlide.onchange = function () {
+        rpsSlideOnchangeFunction(this);
+    }
+
+    const additionalSliderOptionsContainer = document.getElementById("additionalSliderOptionsContainer");
+    additionalSliderOptionsContainer.innerHTML = "";
+
+    const _resolutionSelector = `
+         <div class="row mb-3 d-flex align-items-end" >
+            <div class="col">
+                <label for="rpsResolutionSelector" class="form-label">RPS resolution</label>
+                <div id="rpsResolutionSelector" class="container btn-group col" role="group" aria-label="Http methods group">
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradio100" autocomplete="off" value="100" ${_resolution === 100 ? 'checked' : ''}>
+                    <label class="btn btn-outline-primary" for="btnradio100">100</label>
+                    
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradio1000" autocomplete="off" value="1000" ${_resolution === 1000 ? 'checked' : ''}>
+                    <label class="btn btn-outline-primary" for="btnradio1000">1000</label>
+                    
+                    <input type="radio" class="btn-check" name="btnradio" id="btnradio10000" autocomplete="off" value="10000" ${_resolution === 10000 ? 'checked' : ''}>
+                    <label class="btn btn-outline-primary" for="btnradio10000">10000</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-3 d-flex align-items-center">
+            <div class="col-md-6">
+                <label for="loadTimeInputId" class="form-label">Load time, s</label>
+                <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
+                <div class="invalid-feedback">Must be positive integer</div>
+            </div>
+
+            <div class="d-flex justify-content-end col-md-6">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput">
+                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // render
+    additionalSliderOptionsContainer.insertAdjacentHTML("afterbegin", _resolutionSelector);
+    // render
+
+    const rpsResolutionSelector = document.getElementById("rpsResolutionSelector");
+
+    rpsResolutionSelector.onchange = () => {
+        const _newResolution = Array.from(rpsResolutionSelector.children).find((selector) => selector.checked).value;
+
+        renderRpsSliderOptions(_newResolution, currentRps, rpsSlideOnchangeFunction)
+    };
+
+}
