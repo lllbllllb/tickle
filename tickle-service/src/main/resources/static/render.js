@@ -127,3 +127,14 @@ export function renderCanvasesRow(lineChartId, barChartId, name) {
     document.getElementById("chartContainer").insertAdjacentHTML("beforeend", canvas);
     // render
 }
+
+export function renderHttpMethodSelector(method, checked) {
+    const _methodSelector = `
+                <input type="radio" class="btn-check" name="btnradio" id="btnradio${method}" autocomplete="off" value="${method}" ${checked ? 'checked' : ''}>
+                <label class="btn btn-outline-primary" for="btnradio${method}">${method}</label>
+        `;
+
+    // render
+    document.getElementById("httpMethodSelector").insertAdjacentHTML("beforeend", _methodSelector);
+    // render
+    }

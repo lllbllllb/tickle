@@ -1,5 +1,5 @@
 import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, Prey, StateContainer, UrlProvider} from "./model.js"
-import {renderCanvasesRow, renderHeader, renderPrey} from "./render.js";
+import {renderCanvasesRow, renderHeader, renderPrey, renderHttpMethodSelector} from "./render.js";
 
 const colorPack = new ColorPack(
     new ColorGroup('rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0.5)'),
@@ -18,6 +18,7 @@ await registerSliderForm();
 await registerSubmitNewPreyEventListener();
 await reloadPreys();
 await renderHeaders();
+renderHttpMethodSelectors();
 
 async function registerSliderForm() {
     onSliderStickyContainerEvent();
@@ -331,3 +332,6 @@ async function registerAddHeaderButton() {
     }
 }
 
+function renderHttpMethodSelectors() {
+    ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE'].forEach((value, index, array) => renderHttpMethodSelector(value, !index));
+}
