@@ -21,22 +21,19 @@ await renderHeaders();
 renderHttpMethodSelectors();
 
 async function registerSliderForm() {
-
-    const loadTimeInputId = document.getElementById("loadTimeInputId");
-
-    const tickleOptions = await fetch(urlProvider.tickleOptionsUrl, {
+    const tickleOptionsBody = await fetch(urlProvider.tickleOptionsUrl, {
         method: "GET",
         headers: {
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
     });
-    const loadOptions = await tickleOptions.json()
+    const tickleOptions = await tickleOptionsBody.json()
 
-    renderRpsSliderOptions(0, loadOptions.rps, rpsSlideOnchangeFunction);
+    renderRpsSliderOptions(0, tickleOptions.rps, rpsSlideOnchangeFunction);
 
-    const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
-    stopLoadWhenDisconnectInput.checked = loadOptions.stopWhenDisconnect;
+    document.getElementById("loadTimeInputId").value = tickleOptions.loadTimeSec;
+    document.getElementById("stopLoadWhenDisconnectInput").checked = tickleOptions.stopWhenDisconnect;
 
     onSliderStickyContainerEvent();
 }
@@ -103,7 +100,7 @@ async function registerSubmitNewPreyEventListener() {
 }
 
 async function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
-    await fetch("http://localhost:8088/prey", {
+    await fetch(urlProvider.preyUrl, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -141,9 +138,12 @@ async function reloadPreys() {
         const _name = prey.name;
 
         renderPrey(prey, onDeletePreyAction, onSwitchEnabledPreyAction)
-        renderPreyCharts(_name);
-        connectToLoadWs(_name);
-        connectToCountdownWs(_name);
+
+        if (prey.enabled) {
+            renderPreyCharts(_name);
+            connectToLoadWs(_name);
+            connectToCountdownWs(_name);
+        }
     });
 }
 
@@ -280,7 +280,8 @@ async function onSwitchEnabledPreyAction(that, name) {
         body: JSON.stringify({
             enabled: that.checked
         })
-    })
+    });
+    await reloadPreys();
 }
 
 function resetCharts() {
