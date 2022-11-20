@@ -10,7 +10,7 @@ export async function renderPrey(prey, onPreyDeleteFunction, onPreyEnabledSwitch
     }
     const _listElement = `
                 <li id="prey_${prey.name}" class="container list-group-item">
-                    <div class="row">
+                    <div class="row d-flex align-items-center">
                         <div class="col-md-1 d-flex align-items-center">
                             <div class="form-check form-switch d-flex align-items-center">
                               <input class="form-check-input" type="checkbox" role="switch" id="${_enablePreySwitcherId}" ${prey.enabled ? 'checked' : ''} title="Enable to tickle">
