@@ -8,6 +8,7 @@ export class UrlProvider {
         this._loadParametersPath = "tickleOptions";
         this._loadWsPath = "websocket/load";
         this._countdownWsPath = "websocket/countdown";
+        this._filePath = "file";
     };
 
     get preyUrl() {
@@ -24,6 +25,10 @@ export class UrlProvider {
 
     get tickleOptionsUrl() {
         return `${this._httpProtocol}://${this._host}/${this._loadParametersPath}`;
+    }
+
+    get preyFileUrl() {
+        return `${this._httpProtocol}://${this._host}/${this._preyPath}/${this._filePath}`;
     }
 
     getLoadWsUrl(name) {
@@ -294,6 +299,7 @@ export class StateContainer {
         this._dataCounters = {};
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
+        this._nameToPreyMap = {};
     }
 
     getDataCounter(name) {
@@ -336,10 +342,15 @@ export class StateContainer {
         return this._nameToBarChartContainerMap[name] = chartContainer;
     }
 
+    addPrey(prey) {
+        this._nameToPreyMap[prey.name] = prey;
+    }
+
     hardReset() {
         this._dataCounters = {};
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
+        this._nameToPreyMap = {};
     }
 
     reset() {
@@ -353,6 +364,6 @@ export class StateContainer {
     }
 
     isExist(name) {
-        return !!this._dataCounters[name];
+        return !!this._nameToPreyMap[name];
     }
 }

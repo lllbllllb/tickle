@@ -5,6 +5,9 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lllbllllb.tickleservice.model.Prey;
 import com.lllbllllb.tickleservice.model.TickleOptions;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +17,9 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -30,6 +35,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
+import static org.springframework.http.MediaType.APPLICATION_OCTET_STREAM;
 import static org.springframework.web.reactive.function.server.RequestPredicates.DELETE;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
 import static org.springframework.web.reactive.function.server.RequestPredicates.PATCH;
@@ -119,9 +125,11 @@ public class TickleServiceAutoConfiguration {
     }
 
     @Bean
-    RouterFunction<ServerResponse> preyRestController(TickleService tickleService) {
+    RouterFunction<ServerResponse> preyRestController(TickleService tickleService, ObjectMapper objectMapper) {
         var urlPrey = "/prey";
         var urlPreyName = urlPrey + "/{name}";
+        var urlPreyFile = urlPrey + "/file";
+        var tickleConfig = "tickle_config";
 
         return route(POST(urlPrey), request -> request.bodyToMono(Prey.class)
             .flatMap(prey -> {
@@ -144,7 +152,47 @@ public class TickleServiceAutoConfiguration {
                     tickleService.patchPrey(name, prey);
 
                     return noContent().build();
-                })));
+                })))
+            .and(route(GET(urlPreyFile), request -> {
+                try {
+                    var json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(tickleService.getAllPreys());
+
+                    return ServerResponse.ok()
+                        .contentType(APPLICATION_OCTET_STREAM)
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=%s.json".formatted(tickleConfig))
+                        .contentLength(json.getBytes().length)
+                        .bodyValue(json.getBytes());
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+            }))
+            .and(route(POST(urlPreyFile), request -> request.multipartData()
+                .mapNotNull(multipart -> (FilePart) multipart.getFirst(tickleConfig))
+                .flatMap(filePart -> filePart.content()
+                    .map(dataBuffer -> {
+                        var bytes = new byte[dataBuffer.readableByteCount()];
+
+                        dataBuffer.read(bytes);
+
+                        return bytes;
+                    })
+                    .reduce((b1, b2) -> {
+                        var target = new byte[b1.length + b2.length];
+
+                        System.arraycopy(b1, 0, target, 0, b1.length);
+                        System.arraycopy(b2, 0, target, b1.length, b2.length);
+
+                        return target;
+                    }))
+                .<List<Prey>>handle((bytes, sink) -> {
+                    try {
+                        sink.next(objectMapper.readValue(bytes, new TypeReference<List<Prey>>() {}));
+                    } catch (Exception e) {
+                        sink.error(e);
+                    }
+                })
+                .doOnNext(tickleService::restore)
+                .then(noContent().build())));
     }
 
     @Bean

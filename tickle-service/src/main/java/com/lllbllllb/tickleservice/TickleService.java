@@ -163,4 +163,9 @@ public class TickleService {
     public TickleOptions getTickleOptions() {
         return tickleOptionsService.getTickleOptions();
     }
+
+    public void restore(List<Prey> preys) {
+        sessionService.getAllPreys().forEach(prey -> finalizables.forEach(finalizable -> finalizable.finalize(prey.name())));
+        preys.forEach(prey -> initializables.forEach(initializable -> initializable.initialize(prey)));
+    }
 }

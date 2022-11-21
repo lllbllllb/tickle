@@ -1,5 +1,5 @@
 import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, StateContainer, UrlProvider} from "./model.js"
-import {renderCanvasesRow, renderHeader, renderPrey, renderHttpMethodSelector, renderRpsSliderOptions} from "./render.js";
+import {renderCanvasesRow, renderHeader, renderHttpMethodSelector, renderPrey, renderRpsSliderOptions} from "./render.js";
 
 const colorPack = new ColorPack(
     new ColorGroup('rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0.5)'),
@@ -18,7 +18,10 @@ await registerSliderForm();
 await registerSubmitNewPreyEventListener();
 await reloadPreys();
 await renderHeaders();
+await registerDownloadPreysListener();
 renderHttpMethodSelectors();
+registerDownloadPreysLink();
+
 
 async function registerSliderForm() {
     const tickleOptionsBody = await fetch(urlProvider.tickleOptionsUrl, {
@@ -99,6 +102,32 @@ async function registerSubmitNewPreyEventListener() {
     });
 }
 
+function registerDownloadPreysLink() {
+    document.getElementById("downloadPreysBtnId").href = urlProvider.preyFileUrl;
+}
+
+async function registerDownloadPreysListener() {
+    const input = document.getElementById("uploadPreysInputId");
+
+    document.getElementById("uploadPreysBtnId").addEventListener("click", (e) => {
+        if (input) {
+            input.click();
+        }
+    }, false);
+
+    input.addEventListener("change", async () => {
+        const file = input.files[0];
+
+        if (file) {
+            const formData = new FormData();
+            formData.append("tickle_config", file);
+            await fetch(urlProvider.preyFileUrl, { method: "POST", body: formData});
+            await reloadPreys();
+        }
+    });
+
+}
+
 async function registerPrey(name, url, method, requestParameters, headers, requestBody, responseTimeout, expectedResponseStatusCode) {
     await fetch(urlProvider.preyUrl, {
         method: "POST",
@@ -116,7 +145,7 @@ async function registerPrey(name, url, method, requestParameters, headers, reque
             expectedResponseStatusCode: expectedResponseStatusCode,
             enabled: true
         })
-    })
+    });
     await reloadPreys();
 }
 
@@ -135,6 +164,8 @@ async function reloadPreys() {
     const preys = await response.json();
 
     preys.forEach((prey, index, array) => {
+        stateContainer.addPrey(prey);
+
         const _name = prey.name;
 
         renderPrey(prey, onDeletePreyAction, onSwitchEnabledPreyAction)
