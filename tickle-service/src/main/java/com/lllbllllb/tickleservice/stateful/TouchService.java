@@ -1,6 +1,7 @@
 package com.lllbllllb.tickleservice.stateful;
 
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.time.Duration;
 import java.util.Map;
@@ -19,14 +20,14 @@ import static java.net.http.HttpRequest.BodyPublishers.ofString;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class HttpRequestService implements Initializable, Finalizable {
+public class TouchService implements Initializable, Finalizable {
 
     // see jdk.internal.net.http.common.Utils.ALLOWED_HEADERS
     // -Djdk.httpclient.allowRestrictedHeaders=Connection
     private static final Set<String> RESTRICTED_HEADERS = Set.of("connection", "content-length", "expect", "host", "upgrade");
     private final Map<String, HttpRequest> preyNameToHttpRequestMap = new ConcurrentHashMap<>();
 
-    public HttpRequest getHttpRequest(String preyName) {
+    public HttpRequest getTouch(String preyName) {
         var httpRequest = preyNameToHttpRequestMap.get(preyName);
 
         if (httpRequest != null) {
@@ -44,22 +45,19 @@ public class HttpRequestService implements Initializable, Finalizable {
         var timeout = Duration.ofMillis(prey.timeoutMs());
         var requestBuilder = HttpRequest.newBuilder()
             .uri(uri)
+            .version(HttpClient.Version.HTTP_1_1)
             .timeout(timeout);
         var requestBody = prey.requestBody();
 
-        if (requestBody != null) {
-            requestBuilder.method(method, ofString(requestBody));
-        } else {
-            requestBuilder.method(method, noBody());
-        }
+        requestBuilder.method(method, requestBody != null ? ofString(requestBody) : noBody());
 
-        prey.headers().entrySet().stream()
-            .filter(entry -> !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase()))
-            .forEach(entry -> requestBuilder.header(entry.getKey(), entry.getValue()));
+        prey.headers().forEach((name, value) -> {
+            if (!RESTRICTED_HEADERS.contains(name.toLowerCase())) {
+                requestBuilder.header(name, value);
+            }
+        });
 
         var request = requestBuilder.build();
-
-
         var name = prey.name();
 
         preyNameToHttpRequestMap.put(name, request);

@@ -4,6 +4,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -44,6 +45,7 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
+import static reactor.core.scheduler.Schedulers.DEFAULT_POOL_SIZE;
 
 @Slf4j
 @ComponentScan
@@ -98,10 +100,21 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            return tickleService.getTouchResultStream(preyName)
+            var in = session.receive()
+                .doOnNext(webSocketMessage -> {
+                    var json = webSocketMessage.getPayloadAsText();
+//                    var incomeEvent = objectMapperService.fromJson(json);
+
+//                    tickleService.load(preyName, incomeEvent);
+                })
+                .doOnError(err -> log.error(err.getMessage(), err))
+                .then();
+            var out = tickleService.getTouchResultStream(preyName)
                 .map(payload -> session.textMessage(payload.toString()))
                 .as(session::send)
                 .doOnCancel(() -> tickleService.disconnectPrey(preyName));
+
+            return Mono.zip(in, out).then();
         };
     }
 
@@ -217,6 +230,7 @@ public class TickleServiceAutoConfiguration {
     HttpClient httpClient() {
         return java.net.http.HttpClient.newBuilder()
             .version(java.net.http.HttpClient.Version.HTTP_1_1)
+            .executor(Executors.newFixedThreadPool(DEFAULT_POOL_SIZE))
             .build();
     }
 

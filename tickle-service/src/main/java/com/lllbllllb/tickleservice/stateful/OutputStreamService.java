@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
-import static com.lllbllllb.tickleservice.StreamUtils.CUSTOM_EMIT_FAILURE_HANDLER;
 import static reactor.util.concurrent.Queues.SMALL_BUFFER_SIZE;
 
 @Slf4j
@@ -28,7 +27,7 @@ public class OutputStreamService implements Initializable, Finalizable {
         var attemptResultSink = preyNameToTouchResultSink.remove(preyName);
 
         if (attemptResultSink != null) {
-            attemptResultSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
+            attemptResultSink.tryEmitComplete();
         } else {
             log.warn("[AttemptResult] stream for [{}] was already finalized", preyName);
         }
@@ -36,7 +35,7 @@ public class OutputStreamService implements Initializable, Finalizable {
         var countdownTickSink = preyNameToCountdownTickSink.remove(preyName);
 
         if (countdownTickSink != null) {
-            countdownTickSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
+            countdownTickSink.tryEmitComplete();
         } else {
             log.warn("[CountdownTick] stream for [{}] was already finalized", preyName);
         }
@@ -89,7 +88,7 @@ public class OutputStreamService implements Initializable, Finalizable {
             throw new IllegalStateException("[AttemptResult] sink for [%s] not found".formatted(preyName));
         }
 
-        sink.emitNext(touchResult, CUSTOM_EMIT_FAILURE_HANDLER);
+        sink.tryEmitNext(touchResult);
     }
 
     public void pushACountdownTick(String preyName, CountdownTick countdownTick) {
@@ -99,7 +98,7 @@ public class OutputStreamService implements Initializable, Finalizable {
             throw new IllegalStateException("[CountdownTick] sink for [%s] not found".formatted(preyName));
         }
 
-        sink.emitNext(countdownTick, CUSTOM_EMIT_FAILURE_HANDLER);
+        sink.tryEmitNext(countdownTick);
     }
 
     public boolean hasSubscribers(String preyName) {

@@ -14,7 +14,7 @@ import static com.lllbllllb.tickleservice.model.TouchResult.Status.UNEXPECTED_ST
 
 @Slf4j
 @Service
-public class HitResultService implements Finalizable, Resettable {
+public class TouchResultService implements Finalizable, Resettable {
 
     private final Map<String, AtomicLong> preyNameToSuccessCountMap = new ConcurrentHashMap<>();
 

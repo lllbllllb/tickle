@@ -1,3 +1,5 @@
+'use strict';
+
 import {BarChartContainer, ColorGroup, ColorPack, LineChartContainer, StateContainer, UrlProvider} from "./model.js"
 import {renderCanvasesRow, renderHeader, renderHttpMethodSelector, renderPrey, renderRpsSliderOptions} from "./render.js";
 
@@ -277,11 +279,11 @@ function appendBarChartData(name, report) {
 function runChartUpdate(name, prevValue) {
     const counter = stateContainer.getDataCounter(name);
 
-    setTimeout(() => {
+    setTimeout(async () => {
         if (prevValue !== counter) {
 
-            stateContainer.getLineChartContainer(name).chart.update();
-            stateContainer.getBarChartContainer(name).chart.update();
+            await stateContainer.getBarChartContainer(name).chart.update();
+            await stateContainer.getLineChartContainer(name).chart.update();
 
             runChartUpdate(name, counter)
         } else {

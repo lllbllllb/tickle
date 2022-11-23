@@ -36,6 +36,16 @@ public class SessionService implements Initializable, Finalizable {
 
     }
 
+    public Prey getPrey(String preyName) {
+        var prey =  preyNameToPreyMap.get(preyName);
+
+        if (prey == null) {
+            throw new IllegalArgumentException("No prey found by name [%s]".formatted(preyName));
+        }
+
+        return prey;
+    }
+
     public List<Prey> getAllEnabledPreys() {
         return preyNameToPreyMap.values().stream()
             .filter(Prey::enabled)

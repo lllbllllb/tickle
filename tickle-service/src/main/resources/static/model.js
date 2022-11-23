@@ -296,7 +296,7 @@ export class BarChartContainer {
 
 export class StateContainer {
     constructor() {
-        this._dataCounters = {};
+        this._dataCounters = new Map();
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
         this._nameToPreyMap = {};
@@ -304,22 +304,24 @@ export class StateContainer {
 
     getDataCounter(name) {
         if (!this._dataCounters[name]) {
-            this._dataCounters[name] = 0;
+            this._dataCounters.set(name, 0);
         }
 
-        return this._dataCounters[name];
+        return this._dataCounters.get(name);
     }
 
     incrementDataCounter(name) {
-        if (!this._dataCounters[name]) {
-            this._dataCounters[name] = 1;
+        if (!this._dataCounters.has(name)) {
+            this._dataCounters.set(name, 1);
         } else {
-            this._dataCounters[name]++;
+            const curr = this._dataCounters.get(name);
+
+            this._dataCounters.set(name, curr + 1);
         }
     }
 
     resetDataCounter(name) {
-        this._dataCounters[name] = 0;
+        this._dataCounters.set(name, 0);
     }
 
     getLineChartContainer(name) {
@@ -347,7 +349,7 @@ export class StateContainer {
     }
 
     hardReset() {
-        this._dataCounters = {};
+        this._dataCounters = new Map();
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
         this._nameToPreyMap = {};

@@ -16,13 +16,13 @@ import com.lllbllllb.tickleservice.model.TouchResult;
 import com.lllbllllb.tickleservice.stateful.CountdownService;
 import com.lllbllllb.tickleservice.stateful.CurrentTickleService;
 import com.lllbllllb.tickleservice.stateful.Finalizable;
-import com.lllbllllb.tickleservice.stateful.HitResultService;
-import com.lllbllllb.tickleservice.stateful.HttpRequestService;
 import com.lllbllllb.tickleservice.stateful.Initializable;
 import com.lllbllllb.tickleservice.stateful.OutputStreamService;
 import com.lllbllllb.tickleservice.stateful.Resettable;
 import com.lllbllllb.tickleservice.stateful.SessionService;
 import com.lllbllllb.tickleservice.stateful.TickleOptionsService;
+import com.lllbllllb.tickleservice.stateful.TouchResultService;
+import com.lllbllllb.tickleservice.stateful.TouchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -38,11 +38,11 @@ public class TickleService {
 
     private final Clock clock;
 
-    private final HttpRequestService httpRequestService;
+    private final TouchService touchService;
 
     private final SessionService sessionService;
 
-    private final HitResultService hitResultService;
+    private final TouchResultService touchResultService;
 
     private final CurrentTickleService currentTickleService;
 
@@ -78,21 +78,21 @@ public class TickleService {
                     () -> resettables.forEach(resettable -> resettable.reset(preyName))
                 );
 
+                var prey = sessionService.getPrey(preyName);
                 var disposable = Flux.interval(interval)
                     .onBackpressureDrop(dropped -> log.warn("Tick {} was dropped due to lack of requests", dropped)) // https://stackoverflow.com/a/60092653
-//                    .publishOn(Schedulers.boundedElastic())
                     .flatMap(i -> {
                         var number = i + 1;
-                        var httpRequest = httpRequestService.getHttpRequest(preyName);
                         var start = clock.millis();
+                        var touch = touchService.getTouch(preyName);
 
-                        return Mono.fromFuture(httpClient.sendAsync(httpRequest, responseInfo -> {
+                        return Mono.fromFuture(() -> httpClient.sendAsync(touch, responseInfo -> {
                                 var responseTime = clock.millis() - start;
 
-                                if (responseInfo.statusCode() == 200) {
-                                    return HttpResponse.BodySubscribers.replacing(hitResultService.applySuccess(preyName, number, responseTime));
+                                if (responseInfo.statusCode() == prey.expectedResponseStatusCode()) {
+                                    return HttpResponse.BodySubscribers.replacing(touchResultService.applySuccess(preyName, number, responseTime));
                                 } else {
-                                    return HttpResponse.BodySubscribers.replacing(hitResultService.applyError(preyName, number, responseTime));
+                                    return HttpResponse.BodySubscribers.replacing(touchResultService.applyError(preyName, number, responseTime));
                                 }
                             })
                             .thenApply(HttpResponse::body)
@@ -103,18 +103,19 @@ public class TickleService {
                                     && (HttpTimeoutException.class.equals(throwable.getCause().getClass())
                                     || HttpConnectTimeoutException.class.equals(throwable.getCause().getClass())
                                     || CancellationException.class.equals(throwable.getCause().getClass()))) {
-                                    return hitResultService.applyTimeout(preyName, number, responseTime);
+                                    return touchResultService.applyTimeout(preyName, number, responseTime);
                                 } else {
-                                    log.error(throwable.getMessage(), throwable);
+                                    log.debug(throwable.getMessage(), throwable);
 
-                                    return hitResultService.applyError(preyName, number, responseTime);
+                                    return touchResultService.applyError(preyName, number, responseTime);
                                 }
                             }));
+
                     }, tickleOptionsService.getMaxConcurrency(), 1)
                     .subscribe(
                         touchResult -> outputStreamService.pushTouchResult(preyName, touchResult),
-                        throwable -> finalizePrey(preyName),
-                        () -> finalizePrey(preyName)
+                        throwable -> resettables.forEach(resettable -> resettable.reset(preyName)),
+                        () -> resettables.forEach(resettable -> resettable.reset(preyName))
                     );
 
                 currentTickleService.registerActiveLoaderDisposable(preyName, disposable);

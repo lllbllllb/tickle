@@ -1,3 +1,4 @@
 logging:
   level:
     reactor.netty.http.client.HttpClientConnect: error
+    reactor.netty.channel.FluxReceive: error
