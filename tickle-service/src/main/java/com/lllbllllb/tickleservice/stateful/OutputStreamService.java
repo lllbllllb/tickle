@@ -12,11 +12,12 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
+import static com.lllbllllb.tickleservice.StreamUtils.CUSTOM_EMIT_FAILURE_HANDLER;
 import static reactor.util.concurrent.Queues.SMALL_BUFFER_SIZE;
 
 @Slf4j
 @Service
-public class OutputStreamService implements Initializable, Finalizable {
+public class OutputStreamService implements Initializable, Finalizable, Resettable {
 
     private final Map<String, Sinks.Many<TouchResult>> preyNameToTouchResultSink = new ConcurrentHashMap<>();
 
@@ -27,7 +28,7 @@ public class OutputStreamService implements Initializable, Finalizable {
         var attemptResultSink = preyNameToTouchResultSink.remove(preyName);
 
         if (attemptResultSink != null) {
-            attemptResultSink.tryEmitComplete();
+            attemptResultSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
         } else {
             log.warn("[AttemptResult] stream for [{}] was already finalized", preyName);
         }
@@ -35,7 +36,7 @@ public class OutputStreamService implements Initializable, Finalizable {
         var countdownTickSink = preyNameToCountdownTickSink.remove(preyName);
 
         if (countdownTickSink != null) {
-            countdownTickSink.tryEmitComplete();
+            countdownTickSink.emitComplete(CUSTOM_EMIT_FAILURE_HANDLER);
         } else {
             log.warn("[CountdownTick] stream for [{}] was already finalized", preyName);
         }
@@ -45,15 +46,13 @@ public class OutputStreamService implements Initializable, Finalizable {
     @Override
     public void initialize(Prey prey) {
         var preyName = prey.name();
-        var attemptResultSink = Sinks.many().multicast().<TouchResult>onBackpressureBuffer(Integer.MAX_VALUE, false);
+        initialize(preyName);
+    }
 
-        preyNameToTouchResultSink.put(preyName, attemptResultSink);
-
-        var countdownTickSink = Sinks.many().multicast().<CountdownTick>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
-
-        preyNameToCountdownTickSink.put(preyName, countdownTickSink);
-
-        log.info("[OutputStream] for [{}] was initialized", preyName);
+    @Override
+    public void reset(String preyName) {
+        finalize(preyName);
+        initialize(preyName);
     }
 
     public Flux<TouchResult> getTouchResultStream(String preyName) {
@@ -88,17 +87,17 @@ public class OutputStreamService implements Initializable, Finalizable {
             throw new IllegalStateException("[AttemptResult] sink for [%s] not found".formatted(preyName));
         }
 
-        sink.tryEmitNext(touchResult);
+        sink.emitNext(touchResult, CUSTOM_EMIT_FAILURE_HANDLER);
     }
 
-    public void pushACountdownTick(String preyName, CountdownTick countdownTick) {
+    public void pushCountdownTick(String preyName, CountdownTick countdownTick) {
         var sink = preyNameToCountdownTickSink.get(preyName);
 
         if (sink == null) {
             throw new IllegalStateException("[CountdownTick] sink for [%s] not found".formatted(preyName));
         }
 
-        sink.tryEmitNext(countdownTick);
+        sink.emitNext(countdownTick, CUSTOM_EMIT_FAILURE_HANDLER);
     }
 
     public boolean hasSubscribers(String preyName) {
@@ -110,5 +109,17 @@ public class OutputStreamService implements Initializable, Finalizable {
             .orElse(0);
 
         return touchResultSubscribersCount > 0 && countdownSubscribersCount > 0;
+    }
+
+    private void initialize(String preyName) {
+        var attemptResultSink = Sinks.many().replay().<TouchResult>all();
+
+        preyNameToTouchResultSink.put(preyName, attemptResultSink);
+
+        var countdownTickSink = Sinks.many().multicast().<CountdownTick>onBackpressureBuffer(SMALL_BUFFER_SIZE, false);
+
+        preyNameToCountdownTickSink.put(preyName, countdownTickSink);
+
+        log.info("[OutputStream] for [{}] was initialized", preyName);
     }
 }

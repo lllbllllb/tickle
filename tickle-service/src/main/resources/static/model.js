@@ -296,32 +296,12 @@ export class BarChartContainer {
 
 export class StateContainer {
     constructor() {
-        this._dataCounters = new Map();
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
-        this._nameToPreyMap = {};
-    }
-
-    getDataCounter(name) {
-        if (!this._dataCounters[name]) {
-            this._dataCounters.set(name, 0);
-        }
-
-        return this._dataCounters.get(name);
-    }
-
-    incrementDataCounter(name) {
-        if (!this._dataCounters.has(name)) {
-            this._dataCounters.set(name, 1);
-        } else {
-            const curr = this._dataCounters.get(name);
-
-            this._dataCounters.set(name, curr + 1);
-        }
-    }
-
-    resetDataCounter(name) {
-        this._dataCounters.set(name, 0);
+        this._nameToPreyMap = new Map();
+        this._nameToTickleWsMap = new Map();
+        this._nameToCounddownWaMap = new Map();
+        this._rps = 0;
     }
 
     getLineChartContainer(name) {
@@ -344,15 +324,44 @@ export class StateContainer {
         return this._nameToBarChartContainerMap[name] = chartContainer;
     }
 
+    getTickleWs(name) {
+        return this._nameToTickleWsMap.get(name);
+    }
+
+    getAllPreys() {
+        return this._nameToPreyMap.values();
+    }
+
+    setNameToTickleWs(name, ws) {
+        this._nameToTickleWsMap.set(name, ws);
+    }
+
+    getCountdownWs(name) {
+        return this._nameToCounddownWaMap.get(name);
+    }
+
+    setNameToCountdownWs(name, ws) {
+        this._nameToCounddownWaMap.set(name, ws);
+    }
+
     addPrey(prey) {
-        this._nameToPreyMap[prey.name] = prey;
+        this._nameToPreyMap.set(prey.name, prey);
+    }
+
+    get rps() {
+        return this._rps;
+    }
+
+    set rps(value) {
+        this._rps = value;
     }
 
     hardReset() {
-        this._dataCounters = new Map();
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
-        this._nameToPreyMap = {};
+        this._nameToPreyMap.clear();
+        this._nameToTickleWsMap.clear();
+        this._nameToCounddownWaMap.clear();
     }
 
     reset() {
@@ -366,6 +375,6 @@ export class StateContainer {
     }
 
     isExist(name) {
-        return !!this._nameToPreyMap[name];
+        return !!this._nameToPreyMap.get(name);
     }
 }

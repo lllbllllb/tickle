@@ -69,13 +69,14 @@ public class TickleService {
         resettables.forEach(resettable -> resettable.reset(preyName));
         tickleOptionsService.updateLoadOptions(tickleOptions);
 
-        return Mono.fromRunnable(() -> tickleOptionsService.getLoadInterval().ifPresentOrElse(
+        return Mono.fromRunnable(() -> tickleOptionsService.getLoadInterval().ifPresent(
             interval -> {
                 countdownService.runCountdown(
                     preyName,
                     tickleOptions,
-                    countdownTick -> outputStreamService.pushACountdownTick(preyName, countdownTick),
-                    () -> resettables.forEach(resettable -> resettable.reset(preyName))
+                    countdownTick -> outputStreamService.pushCountdownTick(preyName, countdownTick),
+//                    () -> resettables.forEach(resettable -> resettable.reset(preyName))
+                    () -> currentTickleService.reset(preyName)
                 );
 
                 var prey = sessionService.getPrey(preyName);
@@ -115,12 +116,12 @@ public class TickleService {
                     .subscribe(
                         touchResult -> outputStreamService.pushTouchResult(preyName, touchResult),
                         throwable -> resettables.forEach(resettable -> resettable.reset(preyName)),
-                        () -> resettables.forEach(resettable -> resettable.reset(preyName))
+//                        () -> resettables.forEach(resettable -> resettable.reset(preyName))
+                        () -> log.info("Load for [{}] is over", preyName)
                     );
 
                 currentTickleService.registerActiveLoaderDisposable(preyName, disposable);
-            },
-            () -> resettables.forEach(resettable -> resettable.reset(preyName))
+            }
         ));
     }
 

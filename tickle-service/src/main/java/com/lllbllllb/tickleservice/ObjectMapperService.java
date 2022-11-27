@@ -1,6 +1,8 @@
 package com.lllbllllb.tickleservice;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Collection;
+import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
@@ -9,11 +11,16 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ObjectMapperService {
 
-    private final ObjectMapper objectMapper;
-
     @SneakyThrows
     public String toJson(Object attemptResult) {
-        return objectMapper.writeValueAsString(attemptResult);
+        return attemptResult.toString();
+    }
+
+    @SneakyThrows
+    public String toJson(Collection<?> attemptResult) {
+        return attemptResult.stream()
+            .map(Object::toString)
+            .collect(Collectors.joining(",", "[", "]"));
     }
 
 }

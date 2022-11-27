@@ -24,7 +24,6 @@ await registerDownloadPreysListener();
 renderHttpMethodSelectors();
 registerDownloadPreysLink();
 
-
 async function registerSliderForm() {
     const tickleOptionsBody = await fetch(urlProvider.tickleOptionsUrl, {
         method: "GET",
@@ -34,6 +33,8 @@ async function registerSliderForm() {
         }
     });
     const tickleOptions = await tickleOptionsBody.json()
+
+    stateContainer.rps = tickleOptions.rps;
 
     renderRpsSliderOptions(0, tickleOptions.rps, rpsSlideOnchangeFunction);
 
@@ -50,8 +51,14 @@ async function rpsSlideOnchangeFunction(that) {
 
     if (additionalSliderOptionsForm.checkValidity()) {
         const value = that.value;
+
+        stateContainer.rps = value;
+
         resetCharts();
+
         await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+
+        reconnectToAllTickles();
     }
 
     additionalSliderOptionsForm.classList.add('was-validated');
@@ -123,7 +130,7 @@ async function registerDownloadPreysListener() {
         if (file) {
             const formData = new FormData();
             formData.append("tickle_config", file);
-            await fetch(urlProvider.preyFileUrl, { method: "POST", body: formData});
+            await fetch(urlProvider.preyFileUrl, {method: "POST", body: formData});
             await reloadPreys();
         }
     });
@@ -174,10 +181,32 @@ async function reloadPreys() {
 
         if (prey.enabled) {
             renderPreyCharts(_name);
-            connectToLoadWs(_name);
-            connectToCountdownWs(_name);
+
+            connectToTickle(_name);
         }
     });
+}
+
+function connectToTickle(name) {
+    const loadServiceWs = connectToTickleWs(name);
+    const countdownServiceWs = connectToCountdownWs(name);
+
+    stateContainer.setNameToTickleWs(name, loadServiceWs);
+    stateContainer.setNameToCountdownWs(name, countdownServiceWs);
+}
+
+function reconnectToAllTickles() {
+    Array.from(stateContainer.getAllPreys())
+        .filter(_prey => !!_prey.enabled)
+        .forEach(_prey => reconnectToTickle(_prey.name));
+}
+
+function reconnectToTickle(name) {
+    stateContainer.getTickleWs(name).close();
+    stateContainer.getCountdownWs(name).close();
+
+    connectToTickleWs(name);
+    connectToCountdownWs(name);
 }
 
 function renderPreyCharts(name) {
@@ -189,16 +218,18 @@ function renderPreyCharts(name) {
     stateContainer.setBarChartContainer(new BarChartContainer(barChartId, name, colorPack));
 }
 
-function connectToLoadWs(name) {
+function connectToTickleWs(name) {
     const loadServiceWs = new WebSocket(urlProvider.getLoadWsUrl(name), []);
-    loadServiceWs.onmessage = (event) => {
-        appendData(name, JSON.parse(event.data));
+
+    loadServiceWs.onmessage = async (event) => {
+        const _data = JSON.parse(event.data);
+
+        await appendData(name, _data);
     }
 
-    loadServiceWs.onopen = (event) => {
+    loadServiceWs.onopen = async (event) => {
         console.log(`[${name}] connected to load ws`);
     }
-
 
     loadServiceWs.onerror = (event) => {
         console.error(event);
@@ -207,6 +238,8 @@ function connectToLoadWs(name) {
     loadServiceWs.onclose = (event) => {
         console.log(`[${name}] disconnected from load ws`)
     }
+
+    return loadServiceWs;
 }
 
 function connectToCountdownWs(name) {
@@ -217,7 +250,9 @@ function connectToCountdownWs(name) {
     }
 
     countdownServiceWs.onmessage = (event) => {
-        updateCountdown(name, JSON.parse(event.data));
+        const _data = JSON.parse(event.data);
+
+        updateCountdown(name, _data);
     }
 
     countdownServiceWs.onerror = (event) => {
@@ -227,18 +262,25 @@ function connectToCountdownWs(name) {
     countdownServiceWs.onclose = (event) => {
         console.log(`[${name}] disconnected from countdown ws`)
     }
+
+    return countdownServiceWs;
 }
 
-function appendData(name, data) {
+async function appendData(name, data) {
     appendLineChartData(name, data);
     appendBarChartData(name, data);
 
-    if (!stateContainer.getDataCounter(name)) {
-        runChartUpdate(name, Number.MIN_SAFE_INTEGER);
-        console.log(`Chart for [${name}] was waked up`);
-    }
+    const number = data["attemptNumber"];
+    const rps = stateContainer.rps;
 
-    stateContainer.incrementDataCounter(name);
+    if (!!rps && number % rps === 0) {
+        await updateCharts(name);
+    }
+}
+
+async function updateCharts(name) {
+    await stateContainer.getBarChartContainer(name).chart.update();
+    await stateContainer.getLineChartContainer(name).chart.update();
 }
 
 function updateCountdown(name, countdownTick) {
@@ -274,24 +316,6 @@ function appendBarChartData(name, report) {
     chartContainer.setSuccessCount(report["successCount"]);
     chartContainer.setTimeoutCount(report["timeoutCount"]);
     chartContainer.setErrorCount(report["errorCount"]);
-}
-
-function runChartUpdate(name, prevValue) {
-    const counter = stateContainer.getDataCounter(name);
-
-    setTimeout(async () => {
-        if (prevValue !== counter) {
-
-            await stateContainer.getBarChartContainer(name).chart.update();
-            await stateContainer.getLineChartContainer(name).chart.update();
-
-            runChartUpdate(name, counter)
-        } else {
-            stateContainer.resetDataCounter(name);
-
-            console.log(`Chart for [${name}] was snooze`);
-        }
-    }, 300); // no less than 300!
 }
 
 async function onDeletePreyAction(name) {

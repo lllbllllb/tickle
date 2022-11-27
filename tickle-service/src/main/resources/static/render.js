@@ -111,10 +111,10 @@ export function renderCanvasesRow(lineChartId, barChartId, name) {
                 <label class="container-fluid text-center mt-1" for="chart-row-${name}">${name}</label>
                 <div id="chart-row-${name}" class="row justify-content-between">
 
-                    <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start">
+                    <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start px-0">
                         <canvas id="${lineChartId}" width="100%" height="22"></canvas>
                     </div>
-                    <div id="cnavas_${barChartId}" class="col-md-2 align-items-start">
+                    <div id="cnavas_${barChartId}" class="col-md-2 align-items-start px-0">
                         <canvas id="${barChartId}" width="100%" height="116"></canvas>
                     </div>
                 </div>
@@ -161,7 +161,7 @@ export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeF
             
             <div class="container-fluid m-0 p-0" id="stickyTickmarksContainer">
                 <datalist id="tickmarks" class=" col-md-12">
-                    <option value="0" label="disable"></option>
+                    <option id="rsetSliderId" value="0" label="Reset"></option>   
                     <option value="${_values[0]}" label="${_values[0]}"></option>
                     <option value="${_values[1]}" label="${_values[1]}"></option>
                     <option value="${_values[2]}" label="${_values[2]}"></option>

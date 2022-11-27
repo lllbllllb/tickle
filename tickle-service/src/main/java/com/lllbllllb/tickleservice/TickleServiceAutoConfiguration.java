@@ -100,21 +100,10 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            var in = session.receive()
-                .doOnNext(webSocketMessage -> {
-                    var json = webSocketMessage.getPayloadAsText();
-//                    var incomeEvent = objectMapperService.fromJson(json);
-
-//                    tickleService.load(preyName, incomeEvent);
-                })
-                .doOnError(err -> log.error(err.getMessage(), err))
-                .then();
-            var out = tickleService.getTouchResultStream(preyName)
-                .map(payload -> session.textMessage(payload.toString()))
+            return tickleService.getTouchResultStream(preyName)
+                .map(payload -> session.textMessage(objectMapperService.toJson(payload)))
                 .as(session::send)
                 .doOnCancel(() -> tickleService.disconnectPrey(preyName));
-
-            return Mono.zip(in, out).then();
         };
     }
 
@@ -131,7 +120,7 @@ public class TickleServiceAutoConfiguration {
             }
 
             return tickleService.getCountdownTickStream(preyName)
-                .map(payload -> session.textMessage(payload.toString()))
+                .map(payload -> session.textMessage(objectMapperService.toJson(payload)))
                 .as(session::send)
                 .doFinally(signalType -> log.info("Countdown WS handler was disconnected by reason [{}]", signalType));
         };
