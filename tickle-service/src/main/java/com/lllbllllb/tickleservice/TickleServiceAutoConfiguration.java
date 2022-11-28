@@ -100,7 +100,14 @@ public class TickleServiceAutoConfiguration {
                 throw new IllegalArgumentException("No serviceName present");
             }
 
-            return tickleService.getTouchResultStream(preyName)
+            var in = session.receive()
+                .map(webSocketMessage -> {
+                    var frameSizeText = webSocketMessage.getPayloadAsText();
+
+                    return Integer.parseInt(frameSizeText);
+                });
+
+            return tickleService.getTouchResultStream(preyName, in)
                 .map(payload -> session.textMessage(objectMapperService.toJson(payload)))
                 .as(session::send)
                 .doOnCancel(() -> tickleService.disconnectPrey(preyName));

@@ -302,6 +302,9 @@ export class StateContainer {
         this._nameToTickleWsMap = new Map();
         this._nameToCounddownWaMap = new Map();
         this._rps = 0;
+        this._dataRequestForbidden = new Map();
+        this._respiteRenderMs = 400;
+        this._requestDataLoopId = new Map();
     }
 
     getLineChartContainer(name) {
@@ -329,7 +332,7 @@ export class StateContainer {
     }
 
     getAllPreys() {
-        return this._nameToPreyMap.values();
+        return Array.from(this._nameToPreyMap.values());
     }
 
     setNameToTickleWs(name, ws) {
@@ -356,6 +359,26 @@ export class StateContainer {
         this._rps = value;
     }
 
+    isDataRequestForbidden(name) {
+        return this._dataRequestForbidden.get(name);
+    }
+
+    setDataRequestForbidden(name, value) {
+        this._dataRequestForbidden.set(name, value);
+    }
+
+    get respiteRenderMs() {
+        return this._respiteRenderMs;
+    }
+
+    getRequestDataLoopId(name) {
+        return this._requestDataLoopId.get(name);
+    }
+
+    setRequestDataLoopId(name, value) {
+        this._requestDataLoopId.set(name, value);
+    }
+
     hardReset() {
         this._nameToLineChartContainerMap = {};
         this._nameToBarChartContainerMap = {};
@@ -378,3 +401,4 @@ export class StateContainer {
         return !!this._nameToPreyMap.get(name);
     }
 }
+

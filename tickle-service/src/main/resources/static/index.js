@@ -57,8 +57,7 @@ async function rpsSlideOnchangeFunction(that) {
         resetCharts();
 
         await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
-
-        reconnectToAllTickles();
+        await reconnectToAllTickles();
     }
 
     additionalSliderOptionsForm.classList.add('was-validated');
@@ -185,21 +184,20 @@ async function reloadPreys() {
             connectToTickle(_name);
         }
     });
+
 }
 
 function connectToTickle(name) {
-    const loadServiceWs = connectToTickleWs(name);
-    const countdownServiceWs = connectToCountdownWs(name);
-
-    stateContainer.setNameToTickleWs(name, loadServiceWs);
-    stateContainer.setNameToCountdownWs(name, countdownServiceWs);
+    connectToTickleWs(name);
+    connectToCountdownWs(name);
 }
 
 function reconnectToAllTickles() {
-    Array.from(stateContainer.getAllPreys())
+    stateContainer.getAllPreys()
         .filter(_prey => !!_prey.enabled)
         .forEach(_prey => reconnectToTickle(_prey.name));
 }
+
 
 function reconnectToTickle(name) {
     stateContainer.getTickleWs(name).close();
@@ -220,6 +218,7 @@ function renderPreyCharts(name) {
 
 function connectToTickleWs(name) {
     const loadServiceWs = new WebSocket(urlProvider.getLoadWsUrl(name), []);
+    stateContainer.setNameToTickleWs(name, loadServiceWs);
 
     loadServiceWs.onmessage = async (event) => {
         const _data = JSON.parse(event.data);
@@ -228,6 +227,7 @@ function connectToTickleWs(name) {
     }
 
     loadServiceWs.onopen = async (event) => {
+        runRequestDataLoop(name);
         console.log(`[${name}] connected to load ws`);
     }
 
@@ -236,6 +236,7 @@ function connectToTickleWs(name) {
     }
 
     loadServiceWs.onclose = (event) => {
+        stopRequestDataLoops(name);
         console.log(`[${name}] disconnected from load ws`)
     }
 
@@ -244,6 +245,7 @@ function connectToTickleWs(name) {
 
 function connectToCountdownWs(name) {
     const countdownServiceWs = new WebSocket(urlProvider.getCountdownWsUrl(name), []);
+    stateContainer.setNameToCountdownWs(name, countdownServiceWs);
 
     countdownServiceWs.onopen = (event) => {
         console.log(`[${name}] connected to countdown ws`);
@@ -266,16 +268,19 @@ function connectToCountdownWs(name) {
     return countdownServiceWs;
 }
 
-async function appendData(name, data) {
-    appendLineChartData(name, data);
-    appendBarChartData(name, data);
+async function appendData(name, array) {
+    stateContainer.setDataRequestForbidden(name, true);
 
-    const number = data["attemptNumber"];
-    const rps = stateContainer.rps;
+    array.forEach(data => {
+        appendLineChartData(name, data);
+        appendBarChartData(name, data);
+    });
 
-    if (!!rps && number % rps === 0) {
+    if (array.length > 0) {
         await updateCharts(name);
     }
+
+    stateContainer.setDataRequestForbidden(name, false);
 }
 
 async function updateCharts(name) {
@@ -388,4 +393,36 @@ async function registerAddHeaderButton() {
 
 function renderHttpMethodSelectors() {
     ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'TRACE'].forEach((value, index, array) => renderHttpMethodSelector(value, !index));
+}
+
+function runRequestDataLoop(name) {
+    stopRequestDataLoops(name);
+
+    const delay = stateContainer.respiteRenderMs;
+
+    let timerId = setTimeout(async function request() {
+        const dataRequestForbidden = stateContainer.isDataRequestForbidden(name);
+
+        if (!dataRequestForbidden) {
+            const ws = stateContainer.getTickleWs(name);
+
+            if (ws) {
+                await ws.send(1);
+            }
+        }
+
+        timerId = setTimeout(request, delay);
+    }, delay);
+
+    stateContainer.setRequestDataLoopId(name, timerId);
+}
+
+function stopRequestDataLoops(name) {
+    const prevTimerId = stateContainer.getRequestDataLoopId(name);
+
+    if (prevTimerId) {
+        clearInterval(prevTimerId);
+
+        console.log("data loop was stopped")
+    }
 }

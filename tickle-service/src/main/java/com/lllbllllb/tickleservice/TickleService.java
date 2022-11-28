@@ -125,8 +125,9 @@ public class TickleService {
         ));
     }
 
-    public Flux<TouchResult> getTouchResultStream(String preyName) {
-        return outputStreamService.getTouchResultStream(preyName);
+    public Flux<List<TouchResult>> getTouchResultStream(String preyName, Flux<Integer> in) {
+        return outputStreamService.getTouchResultStream(preyName)
+            .buffer(in);
     }
 
     public Flux<CountdownTick> getCountdownTickStream(String preyName) {
