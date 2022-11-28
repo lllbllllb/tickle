@@ -33,6 +33,9 @@ jobs:
       run: |
         cd ./tickle-runner/
         mvn spring-boot:build-image
+    - name: Set Release version env variable
+      run: |
+        echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
     - name: Publish to Docker Hub
       uses: docker/build-push-action@v3
       with:           
@@ -40,7 +43,7 @@ jobs:
           tags: |
             mbllllb/tickle:latest
             mbllllb/tickle:${{github.run_number}}
-            mbllllb/tickle:${{project.version}}
+            mbllllb/tickle:${{RELEASE_VERSION}}
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
