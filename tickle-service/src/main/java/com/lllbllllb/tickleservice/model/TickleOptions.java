@@ -6,7 +6,9 @@ public record TickleOptions(
 
     boolean stopWhenDisconnect,
 
-    int loadTimeSec
+    int loadTimeSec,
+
+    boolean watchLive
 ) {
 
 }

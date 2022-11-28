@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class TickleOptionsService implements Initializable, Finalizable {
 
-    private static final TickleOptions DEFAULT_LOAD_CONFIGURATION = new TickleOptions(0, false, 30);
+    private static final TickleOptions DEFAULT_LOAD_CONFIGURATION = new TickleOptions(0, false, 30, true);
 
     private static final long NANOS_PER_SECOND = 1000_000_000L;
 

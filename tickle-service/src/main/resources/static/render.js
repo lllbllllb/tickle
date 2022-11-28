@@ -139,7 +139,7 @@ export function renderHttpMethodSelector(method, checked) {
     // render
 }
 
-export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeFunction) {
+export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeFunction, watchLive, stopWhenDisconnect) {
     const _currentRps = Number(currentRps);
     const _resolution = !!resolution ? Number(resolution) : _currentRps === 0 ? 1000 : _currentRps > 1000 ? 10000 : _currentRps > 100 ? 1000 : 100;
     const _step = _resolution === 100 ? 1 : _resolution === 1000 ? 4 : 10;
@@ -212,15 +212,22 @@ export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeF
         </div>
         
         <div class="row mb-3 d-flex align-items-center">
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label for="loadTimeInputId" class="form-label">Load time, s</label>
                 <input type="number" step="1" class="form-control" min="1" id="loadTimeInputId" value="30" required>
                 <div class="invalid-feedback">Must be positive integer</div>
             </div>
 
-            <div class="d-flex justify-content-end col-md-6">
+            <div class="d-flex justify-content-end col-md-4">
                 <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput">
+                    <input class="form-check-input" type="checkbox" role="switch" id="watchLiveInput" ${watchLive ? 'checked' : ''}>
+                    <label class="form-check-label" for="watchLiveInput">Watch live</label>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end col-md-4">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput" ${stopWhenDisconnect ? 'checked' : ''}>
                     <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
                 </div>
             </div>
@@ -236,7 +243,7 @@ export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeF
     rpsResolutionSelector.onchange = () => {
         const _newResolution = Array.from(rpsResolutionSelector.children).find((selector) => selector.checked).value;
 
-        renderRpsSliderOptions(_newResolution, currentRps, rpsSlideOnchangeFunction)
+        renderRpsSliderOptions(_newResolution, currentRps, rpsSlideOnchangeFunction, watchLive, stopWhenDisconnect)
     };
 
 }

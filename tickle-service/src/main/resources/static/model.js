@@ -305,6 +305,7 @@ export class StateContainer {
         this._dataRequestForbidden = new Map();
         this._respiteRenderMs = 400;
         this._requestDataLoopId = new Map();
+        this._watchLive = true;
     }
 
     getLineChartContainer(name) {
@@ -357,6 +358,14 @@ export class StateContainer {
 
     set rps(value) {
         this._rps = value;
+    }
+
+    get watchLive() {
+        return this._watchLive;
+    }
+
+    set watchLive(value) {
+        this._watchLive = value;
     }
 
     isDataRequestForbidden(name) {

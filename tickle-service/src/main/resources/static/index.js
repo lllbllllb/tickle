@@ -33,13 +33,18 @@ async function registerSliderForm() {
         }
     });
     const tickleOptions = await tickleOptionsBody.json()
+    const rps = tickleOptions.rps;
+    const watchLive = tickleOptions.watchLive;
+    const stopWhenDisconnect = tickleOptions.stopWhenDisconnect;
 
-    stateContainer.rps = tickleOptions.rps;
+    stateContainer.rps = rps;
+    stateContainer.watchLive = watchLive;
 
-    renderRpsSliderOptions(0, tickleOptions.rps, rpsSlideOnchangeFunction);
+    renderRpsSliderOptions(0, rps, rpsSlideOnchangeFunction, watchLive, stopWhenDisconnect);
 
     document.getElementById("loadTimeInputId").value = tickleOptions.loadTimeSec;
-    document.getElementById("stopLoadWhenDisconnectInput").checked = tickleOptions.stopWhenDisconnect;
+    document.getElementById("stopLoadWhenDisconnectInput").checked = stopWhenDisconnect;
+    document.getElementById("watchLiveInput").checked = watchLive;
 
     onSliderStickyContainerEvent();
 }
@@ -47,16 +52,19 @@ async function registerSliderForm() {
 async function rpsSlideOnchangeFunction(that) {
     const additionalSliderOptionsForm = document.getElementById("additionalSliderOptionsForm");
     const stopLoadWhenDisconnectInput = document.getElementById("stopLoadWhenDisconnectInput");
+    const watchLiveInput = document.getElementById("watchLiveInput");
+    const watchLive = watchLiveInput.checked;
     const loadTimeInputId = document.getElementById("loadTimeInputId");
 
     if (additionalSliderOptionsForm.checkValidity()) {
         const value = that.value;
 
         stateContainer.rps = value;
+        stateContainer.watchLive = watchLive;
 
         resetCharts();
 
-        await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value);
+        await runTickle(value, stopLoadWhenDisconnectInput.checked, loadTimeInputId.value, watchLive);
         await reconnectToAllTickles();
     }
 
@@ -296,6 +304,10 @@ function updateCountdown(name, countdownTick) {
     progressbar.setAttribute("aria-valuenow", `${initialValue}`);
     progressbar.style.width = `${(initialValue - currentValue) / initialValue * 100}%`;
     progressbar.innerHTML = `${currentValue}`;
+
+    if (currentValue === 0) {
+        stateContainer.watchLive = true;
+    }
 }
 
 function appendLineChartData(name, report) {
@@ -350,11 +362,12 @@ function resetCharts() {
     stateContainer.reset();
 }
 
-async function runTickle(rps, isStopLoadWhenDisconnect, loadTimeSec) {
+async function runTickle(rps, isStopLoadWhenDisconnect, loadTimeSec, watchLive) {
     const body = {
         rps: rps,
         stopWhenDisconnect: isStopLoadWhenDisconnect,
         loadTimeSec: loadTimeSec,
+        watchLive: watchLive
     }
 
     await fetch(urlProvider.tickleUrl, {
@@ -402,8 +415,9 @@ function runRequestDataLoop(name) {
 
     let timerId = setTimeout(async function request() {
         const dataRequestForbidden = stateContainer.isDataRequestForbidden(name);
+        const watchLive = stateContainer.watchLive;
 
-        if (!dataRequestForbidden) {
+        if (!dataRequestForbidden && !!watchLive) {
             const ws = stateContainer.getTickleWs(name);
 
             if (ws) {
