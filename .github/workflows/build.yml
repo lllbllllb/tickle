@@ -31,7 +31,7 @@ jobs:
         password: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Build a container image from our Spring Boot app using Paketo.io / Cloud Native Build Packs
       run: |
-        cd .\tickle-runner\
+        cd ./tickle-runner/
         mvn spring-boot:build-image
     - name: Publish to Docker Hub
       uses: docker/build-push-action@v3
