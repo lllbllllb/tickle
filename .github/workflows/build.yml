@@ -10,6 +10,9 @@ name: Java CI with Maven
 
 on: [push]
 
+env:
+  IMAGE_NAME: github-tickle-tmp-image
+
 jobs:
   build:
 
@@ -32,14 +35,14 @@ jobs:
     - name: Build a container image from our Spring Boot app using Paketo.io / Cloud Native Build Packs
       run: |
         cd ./tickle-runner/
-        mvn spring-boot:build-image
+        mvn spring-boot:build-image -Dspring-boot:build-image.imageName=$IMAGE_NAME
     - name: Set Release version env variable
       run: |
         echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
     - name: Publish to Docker Hub
       run: |
-        docker tag mbllllb/tickle:latest
-        docker tag mbllllb/tickle:${{env.RELEASE_VERSION}}
+        docker tag $IMAGE_NAME mbllllb/tickle:latest
+        docker tag $IMAGE_NAME mbllllb/tickle:${{env.RELEASE_VERSION}}
         docker push mbllllb/tickle:latest
         docker push mbllllb/tickle:${{env.RELEASE_VERSION}}
 
