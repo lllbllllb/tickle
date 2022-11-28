@@ -43,7 +43,7 @@ jobs:
           tags: |
             mbllllb/tickle:latest
             mbllllb/tickle:${{github.run_number}}
-            mbllllb/tickle:${{RELEASE_VERSION}}
+            mbllllb/tickle:${{env.RELEASE_VERSION}}
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
