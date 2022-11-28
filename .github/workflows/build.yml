@@ -37,13 +37,11 @@ jobs:
       run: |
         echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
     - name: Publish to Docker Hub
-      uses: docker/build-push-action@v3
-      with:           
-          push: true
-          tags: |
-            mbllllb/tickle:latest
-            mbllllb/tickle:${{github.run_number}}
-            mbllllb/tickle:${{env.RELEASE_VERSION}}
+      run: |
+        docker tag mbllllb/tickle:latest
+        docker tag mbllllb/tickle:${{env.RELEASE_VERSION}}
+        docker push mbllllb/tickle:latest
+        docker push mbllllb/tickle:${{env.RELEASE_VERSION}}
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     - name: Update dependency graph
