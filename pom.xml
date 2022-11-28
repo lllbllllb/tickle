@@ -18,7 +18,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <revision>0.0.2</revision>
+        <revision>0.0.3</revision>
         <java.version>17</java.version>
 <!--        <repackage.classifier/>-->
         <mojo.build.helper.plugin.version>3.2.0</mojo.build.helper.plugin.version>

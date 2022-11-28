@@ -105,12 +105,12 @@ public class TickleServiceAutoConfiguration {
                     var frameSizeText = webSocketMessage.getPayloadAsText();
 
                     return Integer.parseInt(frameSizeText);
-                });
+                })
+                .doOnCancel(() -> tickleService.disconnectPrey(preyName));
 
             return tickleService.getTouchResultStream(preyName, in)
                 .map(payload -> session.textMessage(objectMapperService.toJson(payload)))
-                .as(session::send)
-                .doOnCancel(() -> tickleService.disconnectPrey(preyName));
+                .as(session::send);
         };
     }
 

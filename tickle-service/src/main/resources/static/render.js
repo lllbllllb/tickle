@@ -228,7 +228,7 @@ export function renderRpsSliderOptions(resolution, currentRps, rpsSlideOnchangeF
             <div class="d-flex justify-content-end col-md-4">
                 <div class="form-check form-switch">
                     <input class="form-check-input" type="checkbox" role="switch" id="stopLoadWhenDisconnectInput" ${stopWhenDisconnect ? 'checked' : ''}>
-                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop load when disconnect</label>
+                    <label class="form-check-label" for="stopLoadWhenDisconnectInput">Stop when disconnect</label>
                 </div>
             </div>
         </div>
