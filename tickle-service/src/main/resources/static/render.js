@@ -112,13 +112,13 @@ export function renderCanvasesRow(lineChartId, barChartId, name) {
                 <div id="chart-row-${name}" class="row justify-content-between">
 
                     <div id="cnavas_${lineChartId}" class="col-md-10 align-items-start px-0">
-                        <canvas id="${lineChartId}" width="100%" height="22"></canvas>
+                        <canvas id="${lineChartId}" width="100%" height="24"></canvas>
                     </div>
                     <div id="cnavas_${barChartId}" class="col-md-2 align-items-start px-0">
-                        <canvas id="${barChartId}" width="100%" height="116"></canvas>
+                        <canvas id="${barChartId}" width="100%" height="120"></canvas>
                     </div>
                 </div>
-                <div class="progress mb-4">
+                <div class="progress mb-4" id="progress-bar-${name}">
                    <div id="load-progressbar-${name}" class="progress-bar progress-bar-striped" role="progressbar" aria-label="Example with label" style="width: 0;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
             `;

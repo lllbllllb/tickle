@@ -1,10 +1,8 @@
 package com.lllbllllb.tickleservice;
 
-import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -45,7 +43,6 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.noContent;
 import static org.springframework.web.reactive.function.server.ServerResponse.ok;
-import static reactor.core.scheduler.Schedulers.DEFAULT_POOL_SIZE;
 
 @Slf4j
 @ComponentScan
@@ -219,15 +216,6 @@ public class TickleServiceAutoConfiguration {
         var urlRps = "/tickleOptions";
 
         return route(GET(urlRps), request -> ok().body(Mono.fromCallable(tickleService::getTickleOptions), TickleOptions.class));
-    }
-
-
-    @Bean
-    HttpClient httpClient() {
-        return java.net.http.HttpClient.newBuilder()
-            .version(java.net.http.HttpClient.Version.HTTP_1_1)
-            .executor(Executors.newFixedThreadPool(DEFAULT_POOL_SIZE))
-            .build();
     }
 
     @Bean

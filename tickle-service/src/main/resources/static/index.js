@@ -32,7 +32,7 @@ async function registerSliderForm() {
             "Accept": "application/json"
         }
     });
-    const tickleOptions = await tickleOptionsBody.json()
+    const tickleOptions = await tickleOptionsBody.json();
     const rps = tickleOptions.rps;
     const watchLive = tickleOptions.watchLive;
     const stopWhenDisconnect = tickleOptions.stopWhenDisconnect;

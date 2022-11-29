@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
 
 import com.lllbllllb.tickleservice.model.Prey;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import static java.net.http.HttpRequest.BodyPublishers.noBody;
 import static java.net.http.HttpRequest.BodyPublishers.ofString;
+import static reactor.core.scheduler.Schedulers.DEFAULT_POOL_SIZE;
 
 @Slf4j
 @Service
@@ -27,6 +29,8 @@ public class TouchService implements Initializable, Finalizable {
     private static final Set<String> RESTRICTED_HEADERS = Set.of("connection", "content-length", "expect", "host", "upgrade");
     private final Map<String, HttpRequest> preyNameToHttpRequestMap = new ConcurrentHashMap<>();
 
+    private final Map<String, HttpClient> preyNameToHttpClientMap = new ConcurrentHashMap<>();
+
     public HttpRequest getTouch(String preyName) {
         var httpRequest = preyNameToHttpRequestMap.get(preyName);
 
@@ -35,6 +39,16 @@ public class TouchService implements Initializable, Finalizable {
         }
 
         throw new IllegalStateException("[HttpRequest] for [%s] not found".formatted(preyName));
+    }
+
+    public HttpClient getClient(String preyName) {
+        var client = preyNameToHttpClientMap.get(preyName);
+
+        if (client != null) {
+            return client;
+        }
+
+        throw new IllegalStateException("[HttpClient] for [%s] not found".formatted(preyName));
     }
 
     @Override
@@ -59,8 +73,13 @@ public class TouchService implements Initializable, Finalizable {
 
         var request = requestBuilder.build();
         var name = prey.name();
+        var httpClient = java.net.http.HttpClient.newBuilder()
+            .version(java.net.http.HttpClient.Version.HTTP_1_1)
+            .executor(Executors.newFixedThreadPool(DEFAULT_POOL_SIZE))
+            .build();
 
         preyNameToHttpRequestMap.put(name, request);
+        preyNameToHttpClientMap.put(name, httpClient);
 
         log.info("[HttpRequest] for [{}] was initialized", prey);
     }

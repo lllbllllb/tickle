@@ -1,6 +1,5 @@
 package com.lllbllllb.tickleservice;
 
-import java.net.http.HttpClient;
 import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
@@ -33,8 +32,6 @@ import reactor.core.publisher.Mono;
 @Service
 @RequiredArgsConstructor
 public class TickleService {
-
-    private final HttpClient httpClient;
 
     private final Clock clock;
 
@@ -85,6 +82,7 @@ public class TickleService {
                     .flatMap(i -> {
                         var number = i + 1;
                         var start = clock.millis();
+                        var httpClient = touchService.getClient(preyName);
                         var touch = touchService.getTouch(preyName);
 
                         return Mono.fromFuture(() -> httpClient.sendAsync(touch, responseInfo -> {
